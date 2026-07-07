@@ -1,0 +1,264 @@
+"""Bilingual string management for BachzTab bot."""
+
+STRINGS = {
+    "trip_created": {
+        "en": "🏕 Trip '{name}' created! Families can join with /join <weight>\n\nExample: /join 2.5 (2 adults + 1 kid)",
+        "fa": "🏕 سفر '{name}' ساخته شد! خانواده\u200cها با /join <وزن> عضو شوند\n\nمثال: /join 2.5 (۲ بزرگسال + ۱ بچه)",
+    },
+    "trip_already_active": {
+        "en": "⚠️ A trip is already active. Use /endtrip first.",
+        "fa": "⚠️ یک سفر فعال وجود دارد. اول /endtrip بزنید.",
+    },
+    "trip_ended": {
+        "en": "✅ Trip '{name}' ended.",
+        "fa": "✅ سفر '{name}' پایان یافت.",
+    },
+    "no_active_trip": {
+        "en": "⚠️ No active trip. Create one with /newtrip <name>",
+        "fa": "⚠️ سفر فعالی نیست. با /newtrip <نام> بسازید.",
+    },
+    "family_joined": {
+        "en": "✅ {name} joined with weight {weight}",
+        "fa": "✅ {name} با وزن {weight} عضو شد",
+    },
+    "family_updated": {
+        "en": "✅ {name} weight updated to {weight}",
+        "fa": "✅ وزن {name} به {weight} تغییر کرد",
+    },
+    "join_first": {
+        "en": "⚠️ Join the trip first with /join <weight>",
+        "fa": "⚠️ اول با /join <وزن> عضو شوید",
+    },
+    "meal_logged": {
+        "en": "✅ Meal #{number} '{name}' (${amount:.2f}) logged by {family}",
+        "fa": "✅ وعده #{number} '{name}' (${amount:.2f}) توسط {family} ثبت شد",
+    },
+    "meal_created": {
+        "en": "✅ Meal #{number} '{name}' created. Use /contribute {number} <amount> to add payments.",
+        "fa": "✅ وعده #{number} '{name}' ساخته شد. با /contribute {number} <مبلغ> پرداخت اضافه کنید.",
+    },
+    "meal_already_exists": {
+        "en": "ℹ️ Meal #{number} '{name}' already exists. Use /contribute {number} <amount> to add your payment.",
+        "fa": "ℹ️ وعده #{number} '{name}' قبلاً وجود دارد. با /contribute {number} <مبلغ> پرداختتان را اضافه کنید.",
+    },
+    "contribution_added": {
+        "en": "✅ {family} added ${amount:.2f} to Meal #{number} '{name}'\n📊 Total: ${total:.2f}",
+        "fa": "✅ {family} مبلغ ${amount:.2f} به وعده #{number} '{name}' اضافه کرد\n📊 جمع: ${total:.2f}",
+    },
+    "meal_not_found": {
+        "en": "⚠️ Meal #{number} not found.",
+        "fa": "⚠️ وعده #{number} پیدا نشد.",
+    },
+    "skip_prompt": {
+        "en": "Which meal did your family skip?",
+        "fa": "خانواده شما کدام وعده را نخورد؟",
+    },
+    "skip_confirmed": {
+        "en": "✅ {family} marked as absent from Meal #{number} '{name}'",
+        "fa": "✅ {family} از وعده #{number} '{name}' غایب ثبت شد",
+    },
+    "expense_logged": {
+        "en": "✅ Shared expense '{description}' (${amount:.2f}) logged by {family}",
+        "fa": "✅ هزینه مشترک '{description}' (${amount:.2f}) توسط {family} ثبت شد",
+    },
+    "settle_header": {
+        "en": "🏕 {trip_name} — Final Settlement\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 Summary:\n• {family_count} families, {meal_count} meals, {expense_count} shared expenses\n• Total spent: ${total_spent:.2f}",
+        "fa": "🏕 {trip_name} — تسویه نهایی\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 خلاصه:\n• {family_count} خانواده، {meal_count} وعده، {expense_count} هزینه مشترک\n• کل هزینه: ${total_spent:.2f}",
+    },
+    "settle_transfers_header": {
+        "en": "\n💰 Transfers needed ({count}):",
+        "fa": "\n💰 انتقال\u200cهای لازم ({count}):",
+    },
+    "settle_transfer": {
+        "en": "  {index}. {from_name} → {to_name}: ${amount:.2f}",
+        "fa": "  {index}. {from_name} → {to_name}: ${amount:.2f}",
+    },
+    "settle_footer": {
+        "en": "\n✅ After these transfers, everyone is settled!",
+        "fa": "\n✅ بعد از این انتقال\u200cها، حساب همه صاف است!",
+    },
+    "settle_no_transfers": {
+        "en": "\n✅ Everyone is already settled! No transfers needed.",
+        "fa": "\n✅ حساب همه صاف است! نیازی به انتقال نیست.",
+    },
+    "nothing_to_settle": {
+        "en": "⚠️ Nothing to settle yet. Log some meals or expenses first.",
+        "fa": "⚠️ چیزی برای تسویه نیست. اول وعده یا هزینه ثبت کنید.",
+    },
+    "undo_success": {
+        "en": "✅ Last action undone.",
+        "fa": "✅ آخرین عملیات برگردانده شد.",
+    },
+    "undo_nothing": {
+        "en": "⚠️ Nothing to undo.",
+        "fa": "⚠️ چیزی برای برگرداندن نیست.",
+    },
+    "meal_deleted": {
+        "en": "✅ Meal #{number} '{name}' deleted.",
+        "fa": "✅ وعده #{number} '{name}' حذف شد.",
+    },
+    "meal_delete_denied": {
+        "en": "⚠️ Only the family who logged this meal can delete it.",
+        "fa": "⚠️ فقط خانواده\u200cای که این وعده را ثبت کرده می\u200cتواند حذفش کند.",
+    },
+    "meal_edited": {
+        "en": "✅ Your contribution to Meal #{number} updated to ${amount:.2f}",
+        "fa": "✅ سهم شما در وعده #{number} به ${amount:.2f} تغییر کرد",
+    },
+    "no_contribution_to_edit": {
+        "en": "⚠️ You haven't contributed to Meal #{number}.",
+        "fa": "⚠️ شما سهمی در وعده #{number} ندارید.",
+    },
+    "lang_switched": {
+        "en": "✅ Language switched to English.",
+        "fa": "✅ زبان به فارسی تغییر کرد.",
+    },
+    "usage_newtrip": {
+        "en": "Usage: /newtrip <trip name> [family_count]\nExample: /newtrip Camp Darband July 2026 8",
+        "fa": "استفاده: /newtrip <نام سفر> [تعداد خانواده]\nمثال: /newtrip کمپ دربند تیر ۱۴۰۵ 8",
+    },
+    "usage_join": {
+        "en": "Usage: /join <weight>\nExample: /join 2.5 (2 adults + 1 kid = 2.5)",
+        "fa": "استفاده: /join <وزن>\nمثال: /join 2.5 (۲ بزرگسال + ۱ بچه = ۲.۵)",
+    },
+    "usage_meal": {
+        "en": "Usage: /meal <name> [amount]\nExamples:\n  /meal Saturday BBQ 45.50\n  /meal Saturday BBQ (creates slot, no payment)",
+        "fa": "استفاده: /meal <نام> [مبلغ]\nمثال:\n  /meal باربیکیو شنبه 45.50\n  /meal باربیکیو شنبه (فقط ساخت وعده)",
+    },
+    "usage_contribute": {
+        "en": "Usage: /contribute <meal#> <amount>\nExample: /contribute 3 25.00",
+        "fa": "استفاده: /contribute <شماره\u200cوعده> <مبلغ>\nمثال: /contribute 3 25.00",
+    },
+    "usage_expense": {
+        "en": "Usage: /expense <description> <amount>\nExample: /expense Firewood 20",
+        "fa": "استفاده: /expense <توضیح> <مبلغ>\nمثال: /expense هیزم 20",
+    },
+    "usage_deletemeal": {
+        "en": "Usage: /deletemeal <meal#>\nExample: /deletemeal 3",
+        "fa": "استفاده: /deletemeal <شماره\u200cوعده>\nمثال: /deletemeal 3",
+    },
+    "usage_editmeal": {
+        "en": "Usage: /editmeal <meal#> <new amount>\nExample: /editmeal 3 60",
+        "fa": "استفاده: /editmeal <شماره\u200cوعده> <مبلغ جدید>\nمثال: /editmeal 3 60",
+    },
+    "help": {
+        "en": (
+            "🏕 *BachzTab — Camp Expense Splitter*\n\n"
+            "*Trip Management:*\n"
+            "/newtrip <name> [count] — Create a trip (count = expected families)\n"
+            "/join <weight> — Join with your family's share weight\n"
+            "/endtrip — End the current trip\n"
+            "/status — Show trip summary\n\n"
+            "*Meals & Expenses:*\n"
+            "/meal <name> [amount] — Create a meal (or add payment if exists)\n"
+            "/contribute <meal#> <amount> — Add to an existing meal\n"
+            "/skip — Mark your family absent from a meal\n"
+            "/expense <desc> <amount> — Log a shared expense\n\n"
+            "*Settlement:*\n"
+            "/settle — Calculate final transfers\n\n"
+            "*Corrections:*\n"
+            "/editmeal <meal#> <amount> — Update your contribution\n"
+            "/deletemeal <meal#> — Delete a meal you logged\n"
+            "/undo — Undo your last action\n\n"
+            "*Settings:*\n"
+            "/lang <en|fa> — Switch language\n"
+            "/help — Show this message"
+        ),
+        "fa": (
+            "🏕 *BachzTab — تقسیم هزینه کمپ*\n\n"
+            "*مدیریت سفر:*\n"
+            "/newtrip <نام> [تعداد] — ساخت سفر (تعداد = خانواده\u200cهای مورد انتظار)\n"
+            "/join <وزن> — عضویت با وزن سهم خانواده\n"
+            "/endtrip — پایان سفر فعلی\n"
+            "/status — خلاصه سفر\n\n"
+            "*وعده\u200cها و هزینه\u200cها:*\n"
+            "/meal <نام> [مبلغ] — ساخت وعده (یا اضافه کردن اگر وجود دارد)\n"
+            "/contribute <شماره\u200cوعده> <مبلغ> — اضافه کردن به وعده موجود\n"
+            "/skip — غیبت خانواده از یک وعده\n"
+            "/expense <توضیح> <مبلغ> — ثبت هزینه مشترک\n\n"
+            "*تسویه:*\n"
+            "/settle — محاسبه انتقال\u200cهای نهایی\n\n"
+            "*اصلاحات:*\n"
+            "/editmeal <شماره\u200cوعده> <مبلغ> — ویرایش سهم شما\n"
+            "/deletemeal <شماره\u200cوعده> — حذف وعده\u200cای که ثبت کردید\n"
+            "/undo — برگرداندن آخرین عملیات\n\n"
+            "*تنظیمات:*\n"
+            "/lang <en|fa> — تغییر زبان\n"
+            "/help — نمایش این پیام"
+        ),
+    },
+    "status_header": {
+        "en": "🏕 *{trip_name}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "fa": "🏕 *{trip_name}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+    },
+    "status_families": {
+        "en": "\n👨\u200d👩\u200d👧 *Families ({count}):*",
+        "fa": "\n👨\u200d👩\u200d👧 *خانواده\u200cها ({count}):*",
+    },
+    "status_family_item": {
+        "en": "  • {name} (weight: {weight})",
+        "fa": "  • {name} (وزن: {weight})",
+    },
+    "status_meals": {
+        "en": "\n🍽 *Meals ({count}):*",
+        "fa": "\n🍽 *وعده\u200cها ({count}):*",
+    },
+    "status_meal_item": {
+        "en": "  #{number} {name} — ${total:.2f}",
+        "fa": "  #{number} {name} — ${total:.2f}",
+    },
+    "status_expenses": {
+        "en": "\n💸 *Shared Expenses ({count}):*",
+        "fa": "\n💸 *هزینه\u200cهای مشترک ({count}):*",
+    },
+    "status_expense_item": {
+        "en": "  • {description} — ${amount:.2f} (by {family})",
+        "fa": "  • {description} — ${amount:.2f} (توسط {family})",
+    },
+    "status_no_data": {
+        "en": "\n_No meals or expenses logged yet._",
+        "fa": "\n_هنوز وعده یا هزینه\u200cای ثبت نشده._",
+    },
+    "group_only": {
+        "en": "⚠️ This command works in group chats only.",
+        "fa": "⚠️ این دستور فقط در گروه کار می\u200cکند.",
+    },
+    "reminder": {
+        "en": (
+            "⏰ *Daily Reminder — {trip_name}*\n\n"
+            "Not all families have logged their expenses yet! "
+            "({active}/{expected} families contributed so far)\n\n"
+            "*Quick guide:*\n"
+            "• `/meal Friday Dinner 45` — log a meal you paid for\n"
+            "• `/contribute 1 20` — add to existing meal #1\n"
+            "• `/skip` — mark absent from a meal\n"
+            "• `/expense Firewood 15` — log a shared expense\n\n"
+            "_This message will auto-delete in 1 hour._"
+        ),
+        "fa": (
+            "⏰ *یادآوری روزانه — {trip_name}*\n\n"
+            "هنوز همه خانواده\u200cها هزینه\u200cهایشان را ثبت نکرده\u200cاند! "
+            "({active}/{expected} خانواده تا الان ثبت کرده\u200cاند)\n\n"
+            "*راهنمای سریع:*\n"
+            "• `/meal شام جمعه 45` — ثبت وعده\u200cای که پرداخت کردید\n"
+            "• `/contribute 1 20` — اضافه کردن به وعده شماره ۱\n"
+            "• `/skip` — غیبت از یک وعده\n"
+            "• `/expense هیزم 15` — ثبت هزینه مشترک\n\n"
+            "_این پیام بعد از ۱ ساعت حذف می\u200cشود._"
+        ),
+    },
+}
+
+
+def t(key: str, lang: str = "en", **kwargs) -> str:
+    """Translate a string key to the given language with format args."""
+    strings = STRINGS.get(key)
+    if strings is None:
+        return f"[Missing string: {key}]"
+    text = strings.get(lang, strings.get("en", f"[Missing: {key}/{lang}]"))
+    if kwargs:
+        try:
+            return text.format(**kwargs)
+        except (KeyError, ValueError):
+            return text
+    return text

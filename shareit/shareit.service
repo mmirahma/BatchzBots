@@ -1,0 +1,16 @@
+[Unit]
+Description=BachzTab Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=mohsen
+WorkingDirectory=/home/mohsen/Projects/shareit
+Environment=BACHZTAB_BOT_TOKEN=YOUR_TOKEN_HERE
+Environment=BACHZTAB_DB_PATH=/home/mohsen/Projects/shareit/bachztab.db
+ExecStart=/home/mohsen/Projects/shareit/venv/bin/python -m bot.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
