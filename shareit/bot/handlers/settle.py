@@ -12,7 +12,7 @@ from bot.handlers._helpers import require_group, get_lang
 
 async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /settle command — calculate and display final transfers."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]

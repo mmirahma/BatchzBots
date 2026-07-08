@@ -4,12 +4,12 @@ from telegram.ext import ContextTypes
 
 from bot.db import delete_meal, get_meal_by_number, get_meal_contributions, update_contribution_amount
 from bot.i18n import t
-from bot.handlers._helpers import require_group, require_family
+from bot.handlers._helpers import require_group, require_family, reply_ephemeral
 
 
 async def undo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /undo — removes the user's last action."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     trip, family, lang = await require_family(update, context)
     if not family:
@@ -17,12 +17,12 @@ async def undo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     last_action = context.user_data.get("last_action")
     if not last_action:
-        await update.message.reply_text(t("undo_nothing", lang))
+        await reply_ephemeral(update, context, t("undo_nothing", lang))
         return
 
     # Verify the action belongs to this trip (user_data is global per user)
     if last_action.get("trip_id") != trip["id"]:
-        await update.message.reply_text(t("undo_nothing", lang))
+        await reply_ephemeral(update, context, t("undo_nothing", lang))
         return
 
     db_path = context.bot_data["db_path"]
@@ -55,77 +55,99 @@ async def undo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await db.commit()
 
     context.user_data.pop("last_action", None)
-    await update.message.reply_text(t("undo_success", lang))
+    await reply_ephemeral(update, context, t("undo_success", lang))
 
 
 async def deletemeal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /deletemeal <meal#> — only creator can delete."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     trip, family, lang = await require_family(update, context)
     if not family:
         return
 
     if not context.args:
-        await update.message.reply_text(t("usage_deletemeal", lang))
+        await reply_ephemeral(update, context, t("usage_deletemeal", lang))
         return
 
     try:
         meal_number = int(context.args[0].lstrip("#"))
     except ValueError:
-        await update.message.reply_text(t("usage_deletemeal", lang))
+        await reply_ephemeral(update, context, t("usage_deletemeal", lang))
         return
 
     db_path = context.bot_data["db_path"]
     meal = await get_meal_by_number(db_path, trip["id"], meal_number)
     if not meal:
-        await update.message.reply_text(t("meal_not_found", lang, number=meal_number))
+        await reply_ephemeral(update, context, t("meal_not_found", lang, number=meal_number))
         return
 
-    # Check if this family is the original creator (first contributor)
+    # Check if this family is the original creator (first contributor) or meal has no contributions
     contributions = await get_meal_contributions(db_path, meal["id"])
-    if not contributions or contributions[0]["family_id"] != family["id"]:
-        await update.message.reply_text(t("meal_delete_denied", lang))
+    if contributions and contributions[0]["family_id"] != family["id"]:
+        await reply_ephemeral(update, context, t("meal_delete_denied", lang))
         return
 
     meal_name = meal["name"]
     await delete_meal(db_path, meal["id"])
-    await update.message.reply_text(t("meal_deleted", lang, number=meal_number, name=meal_name))
+    await reply_ephemeral(update, context, t("meal_deleted", lang, number=meal_number, name=meal_name))
 
 
 async def editmeal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /editmeal <meal#> <new amount> — update your own contribution."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     trip, family, lang = await require_family(update, context)
     if not family:
         return
 
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text(t("usage_editmeal", lang))
+        await reply_ephemeral(update, context, t("usage_editmeal", lang))
         return
 
     try:
         meal_number = int(context.args[0].lstrip("#"))
         amount = float(context.args[1])
     except (ValueError, IndexError):
-        await update.message.reply_text(t("usage_editmeal", lang))
+        await reply_ephemeral(update, context, t("usage_editmeal", lang))
         return
 
-    if amount <= 0:
-        await update.message.reply_text(t("usage_editmeal", lang))
+    if amount < 0:
+        await reply_ephemeral(update, context, t("usage_editmeal", lang))
         return
 
     db_path = context.bot_data["db_path"]
     meal = await get_meal_by_number(db_path, trip["id"], meal_number)
     if not meal:
-        await update.message.reply_text(t("meal_not_found", lang, number=meal_number))
+        await reply_ephemeral(update, context, t("meal_not_found", lang, number=meal_number))
         return
 
     contributions = await get_meal_contributions(db_path, meal["id"])
     if not any(c["family_id"] == family["id"] for c in contributions):
-        await update.message.reply_text(t("no_contribution_to_edit", lang, number=meal_number))
+        await reply_ephemeral(update, context, t("no_contribution_to_edit", lang, number=meal_number))
         return
 
-    await update_contribution_amount(db_path, meal["id"], family["id"], amount)
-    await update.message.reply_text(t("meal_edited", lang, number=meal_number, amount=amount))
+    if amount == 0:
+        # Remove this family's contribution(s) from the meal
+        import aiosqlite
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "DELETE FROM meal_contributions WHERE meal_id = ? AND family_id = ?",
+                (meal["id"], family["id"]),
+            )
+            await db.commit()
+        await reply_ephemeral(update, context, t("contribution_removed", lang, number=meal_number, name=meal["name"]))
+    else:
+        # Consolidate: delete all contributions for this family, insert one with new amount
+        import aiosqlite
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "DELETE FROM meal_contributions WHERE meal_id = ? AND family_id = ?",
+                (meal["id"], family["id"]),
+            )
+            await db.execute(
+                "INSERT INTO meal_contributions (meal_id, family_id, amount) VALUES (?, ?, ?)",
+                (meal["id"], family["id"], amount),
+            )
+            await db.commit()
+        await reply_ephemeral(update, context, t("meal_edited", lang, number=meal_number, amount=amount))

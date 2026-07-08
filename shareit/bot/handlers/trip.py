@@ -7,18 +7,18 @@ from bot.db import (
     get_families, get_meals, get_meal_contributions, get_shared_expenses,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group
+from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
 
 
 async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /newtrip <name> [family_count] command."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
     chat_id = update.effective_chat.id
 
     if not context.args:
-        await update.message.reply_text(t("usage_newtrip", lang))
+        await reply_ephemeral(update, context, t("usage_newtrip", lang))
         return
 
     # Check if last arg is a number (expected family count)
@@ -36,21 +36,30 @@ async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     existing = await get_active_trip(db_path, chat_id)
     if existing:
-        await update.message.reply_text(t("trip_already_active", lang))
+        await reply_ephemeral(update, context, t("trip_already_active", lang))
         return
 
     await create_trip(db_path, trip_name, chat_id, expected_families)
-    await update.message.reply_text(t("trip_created", lang, name=trip_name))
+    await reply_ephemeral(update, context, t("trip_created", lang, name=trip_name))
     if expected_families:
-        await update.message.reply_text(
-            t("reminder", lang, trip_name=trip_name, active=0, expected=expected_families),
+        from datetime import timedelta
+        from bot.reminder import _delete_reminder_message
+        esc_name = escape_markdown(trip_name, version=1)
+        msg = await update.effective_chat.send_message(
+            t("reminder", lang, trip_name=esc_name, active=0, expected=expected_families),
             parse_mode="Markdown",
+        )
+        context.job_queue.run_once(
+            _delete_reminder_message,
+            when=timedelta(hours=1),
+            data={"chat_id": msg.chat_id, "message_id": msg.message_id},
+            name=f"delete_initial_reminder_{msg.chat_id}_{msg.message_id}",
         )
 
 
 async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /endtrip command."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
@@ -58,16 +67,16 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
-        await update.message.reply_text(t("no_active_trip", lang))
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
     await end_trip(db_path, trip["id"])
-    await update.message.reply_text(t("trip_ended", lang, name=trip["name"]))
+    await reply_ephemeral(update, context, t("trip_ended", lang, name=trip["name"]))
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /status command."""
-    if not await require_group(update):
+    if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]

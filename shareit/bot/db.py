@@ -113,6 +113,25 @@ async def end_trip(db_path: str, trip_id: int) -> None:
         await db.commit()
 
 
+async def get_past_trips(db_path: str, chat_id: int) -> list[dict]:
+    """Get all inactive trips for a chat, ordered by most recent."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM trips WHERE chat_id = ? AND active = 0 ORDER BY id DESC",
+            (chat_id,),
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_trip_by_id(db_path: str, trip_id: int) -> dict | None:
+    """Get a trip by its ID."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
 async def add_family(db_path: str, trip_id: int, name: str, weight: float, telegram_user_id: int) -> int:
     """Add a family to a trip and return the family ID."""
     async with aiosqlite.connect(db_path) as db:

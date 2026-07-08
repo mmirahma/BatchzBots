@@ -29,6 +29,22 @@ STRINGS = {
         "en": "⚠️ Join the trip first with /join <weight>",
         "fa": "⚠️ اول با /join <وزن> عضو شوید",
     },
+    "join_select_weight": {
+        "en": "Select your family's share weight:\n(1 adult = 1, 1 kid = 0.5)",
+        "fa": "وزن سهم خانواده‌تان را انتخاب کنید:\n(۱ بزرگسال = ۱، ۱ بچه = ۰.۵)",
+    },
+    "duplicate_contribution": {
+        "en": "⚠️ Duplicate! You already have a ${amount:.2f} contribution to Meal #{number}. Not added.",
+        "fa": "⚠️ تکراری! شما قبلاً ${amount:.2f} به وعده #{number} پرداخت کرده‌اید. اضافه نشد.",
+    },
+    "contribute_select_meal": {
+        "en": "Which meal do you want to contribute to?",
+        "fa": "به کدام وعده می‌خواهید پرداخت اضافه کنید؟",
+    },
+    "contribute_ask_amount": {
+        "en": "How much did you pay for #{number} {name}? (just type the number)",
+        "fa": "چقدر برای #{number} {name} پرداخت کردید؟ (فقط عدد بزنید)",
+    },
     "meal_logged": {
         "en": "✅ Meal #{number} '{name}' (${amount:.2f}) logged by {family}",
         "fa": "✅ وعده #{number} '{name}' (${amount:.2f}) توسط {family} ثبت شد",
@@ -109,6 +125,10 @@ STRINGS = {
         "en": "⚠️ You haven't contributed to Meal #{number}.",
         "fa": "⚠️ شما سهمی در وعده #{number} ندارید.",
     },
+    "contribution_removed": {
+        "en": "✅ Your contribution to Meal #{number} '{name}' removed.",
+        "fa": "✅ سهم شما از وعده #{number} '{name}' حذف شد.",
+    },
     "lang_switched": {
         "en": "✅ Language switched to English.",
         "fa": "✅ زبان به فارسی تغییر کرد.",
@@ -153,11 +173,13 @@ STRINGS = {
             "/meal <name> [amount] — Create a meal (or add payment if exists)\n"
             "/contribute <meal#> <amount> — Add to an existing meal\n"
             "/skip — Mark your family absent from a meal\n"
-            "/expense <desc> <amount> — Log a shared expense\n\n"
+            "/expense <desc> <amount> — Log a shared expense\n"
+            "/meals — Detailed meal breakdown\n\n"
             "*Settlement:*\n"
-            "/settle — Calculate final transfers\n\n"
+            "/settle — Calculate final transfers\n"
+            "/history — View past trip settlements\n\n"
             "*Corrections:*\n"
-            "/editmeal <meal#> <amount> — Update your contribution\n"
+            "/editmeal <meal#> <amount> — Update contribution (0 = remove)\n"
             "/deletemeal <meal#> — Delete a meal you logged\n"
             "/undo — Undo your last action\n\n"
             "*Settings:*\n"
@@ -175,11 +197,13 @@ STRINGS = {
             "/meal <نام> [مبلغ] — ساخت وعده (یا اضافه کردن اگر وجود دارد)\n"
             "/contribute <شماره\u200cوعده> <مبلغ> — اضافه کردن به وعده موجود\n"
             "/skip — غیبت خانواده از یک وعده\n"
-            "/expense <توضیح> <مبلغ> — ثبت هزینه مشترک\n\n"
+            "/expense <توضیح> <مبلغ> — ثبت هزینه مشترک\n"
+            "/meals — جزئیات وعده\u200cها\n\n"
             "*تسویه:*\n"
-            "/settle — محاسبه انتقال\u200cهای نهایی\n\n"
+            "/settle — محاسبه انتقال\u200cهای نهایی\n"
+            "/history — مشاهده تسویه سفرهای قبلی\n\n"
             "*اصلاحات:*\n"
-            "/editmeal <شماره\u200cوعده> <مبلغ> — ویرایش سهم شما\n"
+            "/editmeal <شماره\u200cوعده> <مبلغ> — ویرایش سهم (۰ = حذف)\n"
             "/deletemeal <شماره\u200cوعده> — حذف وعده\u200cای که ثبت کردید\n"
             "/undo — برگرداندن آخرین عملیات\n\n"
             "*تنظیمات:*\n"
@@ -229,8 +253,8 @@ STRINGS = {
             "Not all families have logged their expenses yet! "
             "({active}/{expected} families contributed so far)\n\n"
             "*Quick guide:*\n"
-            "• `/meal Friday Dinner 45` — log a meal you paid for\n"
-            "• `/contribute 1 20` — add to existing meal #1\n"
+            "• `/join 2.5` — join with your family weight\n"
+            "• `/contribute 1 20` — add payment to meal #1\n"
             "• `/skip` — mark absent from a meal\n"
             "• `/expense Firewood 15` — log a shared expense\n\n"
             "_This message will auto-delete in 1 hour._"
@@ -240,12 +264,40 @@ STRINGS = {
             "هنوز همه خانواده\u200cها هزینه\u200cهایشان را ثبت نکرده\u200cاند! "
             "({active}/{expected} خانواده تا الان ثبت کرده\u200cاند)\n\n"
             "*راهنمای سریع:*\n"
-            "• `/meal شام جمعه 45` — ثبت وعده\u200cای که پرداخت کردید\n"
-            "• `/contribute 1 20` — اضافه کردن به وعده شماره ۱\n"
+            "• `/join 2.5` — عضویت با وزن خانواده\n"
+            "• `/contribute 1 20` — اضافه کردن پرداخت به وعده ۱\n"
             "• `/skip` — غیبت از یک وعده\n"
             "• `/expense هیزم 15` — ثبت هزینه مشترک\n\n"
             "_این پیام بعد از ۱ ساعت حذف می\u200cشود._"
         ),
+    },
+    "meals_header": {
+        "en": "🍽 *Meals — {trip_name}* ({count} total)",
+        "fa": "🍽 *وعده\u200cها — {trip_name}* ({count} عدد)",
+    },
+    "no_meals_yet": {
+        "en": "⚠️ No meals logged yet.",
+        "fa": "⚠️ هنوز وعده\u200cای ثبت نشده.",
+    },
+    "no_history": {
+        "en": "⚠️ No past trips found.",
+        "fa": "⚠️ سفر قبلی یافت نشد.",
+    },
+    "history_list": {
+        "en": "📋 *Past Trips* ({count}):",
+        "fa": "📋 *سفرهای قبلی* ({count}):",
+    },
+    "history_hint": {
+        "en": "\n\n_Use /history <number> to see details._",
+        "fa": "\n\n_برای جزئیات: /history <شماره>_",
+    },
+    "history_invalid": {
+        "en": "⚠️ Invalid trip number. Use 1 to {count}.",
+        "fa": "⚠️ شماره نامعتبر. از ۱ تا {count} وارد کنید.",
+    },
+    "history_usage": {
+        "en": "Usage: /history [number]\nExample: /history 1",
+        "fa": "استفاده: /history [شماره]\nمثال: /history 1",
     },
 }
 

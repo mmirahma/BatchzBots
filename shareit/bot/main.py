@@ -1,7 +1,7 @@
 """BachzTab bot entry point."""
 
 import logging
-from datetime import time
+from datetime import time, timezone, timedelta
 
 from telegram.ext import Application
 
@@ -16,6 +16,15 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+# Vancouver timezone (UTC-7 PDT / UTC-8 PST)
+# Using fixed UTC-7 for summer; for year-round accuracy use pytz/zoneinfo
+try:
+    from zoneinfo import ZoneInfo
+    VANCOUVER_TZ = ZoneInfo("America/Vancouver")
+except ImportError:
+    # Python 3.9 without zoneinfo backport — use fixed UTC-7
+    VANCOUVER_TZ = timezone(timedelta(hours=-7))
 
 
 async def post_init(application: Application) -> None:
@@ -38,10 +47,10 @@ def main() -> None:
 
     register_handlers(app)
 
-    # Schedule daily reminder at 18:00 local time
+    # Schedule daily reminder at 6pm Vancouver time
     app.job_queue.run_daily(
         send_daily_reminder,
-        time=time(hour=18, minute=0),
+        time=time(hour=18, minute=0, tzinfo=VANCOUVER_TZ),
         name="daily_reminder",
     )
 
