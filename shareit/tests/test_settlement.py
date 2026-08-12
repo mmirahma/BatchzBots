@@ -92,3 +92,23 @@ def test_everyone_pays_equally():
     meal_absences = {1: [], 2: []}
     result = calculate_settlement(families, meals, meal_contributions, meal_absences, [])
     assert len(result.transfers) == 0
+
+
+def test_meal_grouping_settlement():
+    """Test settlement using explicit meal groupings with custom weights."""
+    families = [make_family(1, "A", 2.0), make_family(2, "B", 2.0)]
+    meals = [{"id": 1, "name": "Dinner", "meal_number": 1}]
+    meal_contributions = {1: [{"family_id": 1, "amount": 100.0}]}
+    meal_absences = {1: []}
+    meal_groupings = {
+        1: [
+            {"family_id": 1, "weight": 3.0, "is_active": 1},
+            {"family_id": 2, "weight": 1.0, "is_active": 1},
+        ]
+    }
+    result = calculate_settlement(
+        families, meals, meal_contributions, meal_absences, [], meal_groupings=meal_groupings
+    )
+    assert len(result.transfers) == 1
+    assert result.transfers[0].amount == pytest.approx(25.0)
+

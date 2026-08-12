@@ -24,9 +24,25 @@ async def init_db(db_path: str) -> None:
                 language TEXT NOT NULL DEFAULT 'en',
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+            CREATE TABLE IF NOT EXISTS groupings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_id INTEGER NOT NULL REFERENCES trips(id),
+                name TEXT NOT NULL,
+                is_template INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS grouping_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                grouping_id INTEGER NOT NULL REFERENCES groupings(id) ON DELETE CASCADE,
+                family_id INTEGER NOT NULL REFERENCES families(id),
+                weight REAL NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(grouping_id, family_id)
+            );
             CREATE TABLE IF NOT EXISTS meals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trip_id INTEGER NOT NULL REFERENCES trips(id),
+                grouping_id INTEGER REFERENCES groupings(id),
                 name TEXT NOT NULL,
                 meal_number INTEGER NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -45,12 +61,24 @@ async def init_db(db_path: str) -> None:
             CREATE TABLE IF NOT EXISTS shared_expenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trip_id INTEGER NOT NULL REFERENCES trips(id),
+                grouping_id INTEGER REFERENCES groupings(id),
                 family_id INTEGER NOT NULL REFERENCES families(id),
                 description TEXT NOT NULL,
                 amount REAL NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
         """)
+        # Migrations for existing DB files without grouping_id column
+        async with db.execute("PRAGMA table_info(meals)") as cursor:
+            cols = [row[1] for row in await cursor.fetchall()]
+            if "grouping_id" not in cols:
+                await db.execute("ALTER TABLE meals ADD COLUMN grouping_id INTEGER REFERENCES groupings(id)")
+
+        async with db.execute("PRAGMA table_info(shared_expenses)") as cursor:
+            cols = [row[1] for row in await cursor.fetchall()]
+            if "grouping_id" not in cols:
+                await db.execute("ALTER TABLE shared_expenses ADD COLUMN grouping_id INTEGER REFERENCES groupings(id)")
+
         await db.commit()
 
 
@@ -132,15 +160,26 @@ async def get_trip_by_id(db_path: str, trip_id: int) -> dict | None:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
+
 async def add_family(db_path: str, trip_id: int, name: str, weight: float, telegram_user_id: int) -> int:
-    """Add a family to a trip and return the family ID."""
+    """Add a family to a trip and sync to active meal groupings. Return the family ID."""
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute(
             "INSERT INTO families (trip_id, name, weight, telegram_user_id) VALUES (?, ?, ?, ?)",
             (trip_id, name, weight, telegram_user_id),
         )
+        family_id = cursor.lastrowid
+        # Sync to all existing meal groupings for this trip
+        async with db.execute("SELECT grouping_id FROM meals WHERE trip_id = ? AND grouping_id IS NOT NULL", (trip_id,)) as m_cursor:
+            meal_rows = await m_cursor.fetchall()
+            for m_row in meal_rows:
+                g_id = m_row[0]
+                await db.execute(
+                    "INSERT OR IGNORE INTO grouping_members (grouping_id, family_id, weight, is_active) VALUES (?, ?, ?, 1)",
+                    (g_id, family_id, weight),
+                )
         await db.commit()
-        return cursor.lastrowid
+        return family_id
 
 
 async def get_family(db_path: str, trip_id: int, telegram_user_id: int) -> dict | None:
@@ -166,14 +205,86 @@ async def get_families(db_path: str, trip_id: int) -> list[dict]:
 
 
 async def update_family_weight(db_path: str, family_id: int, weight: float) -> None:
-    """Update a family's share weight."""
+    """Update a family's share weight in families table and active meal groupings."""
     async with aiosqlite.connect(db_path) as db:
         await db.execute("UPDATE families SET weight = ? WHERE id = ?", (weight, family_id))
+        # Update weight in existing groupings for active members
+        await db.execute(
+            "UPDATE grouping_members SET weight = ? WHERE family_id = ?",
+            (weight, family_id),
+        )
         await db.commit()
 
 
+# --- Grouping functions ---
+
+async def create_grouping(db_path: str, trip_id: int, name: str, is_template: int = 0) -> int:
+    """Create a new grouping and return its ID."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute(
+            "INSERT INTO groupings (trip_id, name, is_template) VALUES (?, ?, ?)",
+            (trip_id, name, is_template),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def add_or_update_grouping_member(
+    db_path: str, grouping_id: int, family_id: int, weight: float, is_active: int = 1
+) -> None:
+    """Insert or update a member association in a grouping."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "INSERT INTO grouping_members (grouping_id, family_id, weight, is_active) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(grouping_id, family_id) DO UPDATE SET weight = excluded.weight, is_active = excluded.is_active",
+            (grouping_id, family_id, weight, is_active),
+        )
+        await db.commit()
+
+
+async def set_grouping_member_active(db_path: str, grouping_id: int, family_id: int, is_active: int) -> None:
+    """Set the active status of a family association in a grouping."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "UPDATE grouping_members SET is_active = ? WHERE grouping_id = ? AND family_id = ?",
+            (is_active, grouping_id, family_id),
+        )
+        await db.commit()
+
+
+async def get_grouping_members(db_path: str, grouping_id: int) -> list[dict]:
+    """Get all members of a grouping with family names, weights, and active status."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT gm.*, f.name as family_name, f.telegram_user_id "
+            "FROM grouping_members gm "
+            "JOIN families f ON gm.family_id = f.id "
+            "WHERE gm.grouping_id = ? ORDER BY f.id ASC",
+            (grouping_id,),
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_meal_grouping_members(db_path: str, meal_id: int) -> list[dict]:
+    """Get all grouping member associations for a specific meal."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT gm.*, f.name as family_name "
+            "FROM meals m "
+            "JOIN grouping_members gm ON m.grouping_id = gm.grouping_id "
+            "JOIN families f ON gm.family_id = f.id "
+            "WHERE m.id = ? ORDER BY f.id ASC",
+            (meal_id,),
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+# --- Meals and Expenses ---
+
 async def add_meal(db_path: str, trip_id: int, name: str, family_id: int, amount: float) -> int:
-    """Create a meal, optionally with an initial contribution. Returns meal ID."""
+    """Create a meal with an associated grouping, optionally with an initial contribution. Returns meal ID."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
             "SELECT COALESCE(MAX(meal_number), 0) + 1 FROM meals WHERE trip_id = ?",
@@ -181,11 +292,30 @@ async def add_meal(db_path: str, trip_id: int, name: str, family_id: int, amount
         ) as cursor:
             row = await cursor.fetchone()
             meal_number = row[0]
+
+        # 1. Create a grouping for this meal
+        g_cursor = await db.execute(
+            "INSERT INTO groupings (trip_id, name) VALUES (?, ?)",
+            (trip_id, f"Meal #{meal_number} {name}"),
+        )
+        grouping_id = g_cursor.lastrowid
+
+        # 2. Populate grouping_members with all current families and their weights
+        async with db.execute("SELECT id, weight FROM families WHERE trip_id = ?", (trip_id,)) as f_cursor:
+            families = await f_cursor.fetchall()
+            for f_id, f_weight in families:
+                await db.execute(
+                    "INSERT INTO grouping_members (grouping_id, family_id, weight, is_active) VALUES (?, ?, ?, 1)",
+                    (grouping_id, f_id, f_weight),
+                )
+
+        # 3. Create the meal linking to grouping_id
         cursor = await db.execute(
-            "INSERT INTO meals (trip_id, name, meal_number) VALUES (?, ?, ?)",
-            (trip_id, name, meal_number),
+            "INSERT INTO meals (trip_id, grouping_id, name, meal_number) VALUES (?, ?, ?, ?)",
+            (trip_id, grouping_id, name, meal_number),
         )
         meal_id = cursor.lastrowid
+
         if family_id is not None and amount is not None and amount > 0:
             await db.execute(
                 "INSERT INTO meal_contributions (meal_id, family_id, amount) VALUES (?, ?, ?)",
@@ -206,12 +336,21 @@ async def add_meal_contribution(db_path: str, meal_id: int, family_id: int, amou
 
 
 async def add_meal_absence(db_path: str, meal_id: int, family_id: int) -> None:
-    """Mark a family as absent from a meal."""
+    """Mark a family as absent from a meal (updates meal_absences and grouping_members)."""
     async with aiosqlite.connect(db_path) as db:
         await db.execute(
             "INSERT OR IGNORE INTO meal_absences (meal_id, family_id) VALUES (?, ?)",
             (meal_id, family_id),
         )
+        # Sync is_active = 0 in grouping_members for this meal's grouping
+        async with db.execute("SELECT grouping_id FROM meals WHERE id = ?", (meal_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row and row[0]:
+                grouping_id = row[0]
+                await db.execute(
+                    "UPDATE grouping_members SET is_active = 0 WHERE grouping_id = ? AND family_id = ?",
+                    (grouping_id, family_id),
+                )
         await db.commit()
 
 
@@ -247,12 +386,14 @@ async def get_meal_absences(db_path: str, meal_id: int) -> list[int]:
             return [row[0] for row in await cursor.fetchall()]
 
 
-async def add_shared_expense(db_path: str, trip_id: int, family_id: int, description: str, amount: float) -> int:
-    """Add a shared expense and return its ID."""
+async def add_shared_expense(
+    db_path: str, trip_id: int, family_id: int, description: str, amount: float, grouping_id: int | None = None
+) -> int:
+    """Add a shared expense (optionally linked to a grouping) and return its ID."""
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute(
-            "INSERT INTO shared_expenses (trip_id, family_id, description, amount) VALUES (?, ?, ?, ?)",
-            (trip_id, family_id, description, amount),
+            "INSERT INTO shared_expenses (trip_id, grouping_id, family_id, description, amount) VALUES (?, ?, ?, ?, ?)",
+            (trip_id, grouping_id, family_id, description, amount),
         )
         await db.commit()
         return cursor.lastrowid
@@ -271,11 +412,18 @@ async def get_shared_expenses(db_path: str, trip_id: int) -> list[dict]:
 
 
 async def delete_meal(db_path: str, meal_id: int) -> None:
-    """Delete a meal and its contributions/absences."""
+    """Delete a meal and its associated grouping, contributions, and absences."""
     async with aiosqlite.connect(db_path) as db:
+        async with db.execute("SELECT grouping_id FROM meals WHERE id = ?", (meal_id,)) as cursor:
+            row = await cursor.fetchone()
+            grouping_id = row[0] if row else None
+
         await db.execute("DELETE FROM meal_contributions WHERE meal_id = ?", (meal_id,))
         await db.execute("DELETE FROM meal_absences WHERE meal_id = ?", (meal_id,))
         await db.execute("DELETE FROM meals WHERE id = ?", (meal_id,))
+        if grouping_id:
+            await db.execute("DELETE FROM grouping_members WHERE grouping_id = ?", (grouping_id,))
+            await db.execute("DELETE FROM groupings WHERE id = ?", (grouping_id,))
         await db.commit()
 
 
@@ -312,3 +460,4 @@ async def get_meal_by_name(db_path: str, trip_id: int, name: str) -> dict | None
         ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
+

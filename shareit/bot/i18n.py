@@ -1,6 +1,60 @@
 """Bilingual string management for BachzTab bot."""
 
 STRINGS = {
+    "menu_title": {
+        "en": "🏕 *BachzTab — Main Dashboard*\n\nTap a button below to perform an action:",
+        "fa": "🏕 *BachzTab — داشبورد اصلی*\n\nبرای انجام عملیات، دکمه مورد نظر را لمس کنید:",
+    },
+    "btn_status": {"en": "🏕 Status", "fa": "🏕 خلاصه سفر"},
+    "btn_log_expense": {"en": "💸 Log Expense", "fa": "💸 ثبت هزینه"},
+    "btn_log_meal": {"en": "🍽 Log Meal", "fa": "🍽 ثبت وعده"},
+    "btn_contribute": {"en": "💳 Contribute", "fa": "💳 اضافه پرداخت"},
+    "btn_skip": {"en": "🚫 Skip Meal", "fa": "🚫 غیبت وعده"},
+    "btn_expense": {"en": "💸 Expense", "fa": "💸 هزینه مشترک"},
+    "btn_meals": {"en": "📋 Meals", "fa": "📋 لیست وعده‌ها"},
+    "btn_settle": {"en": "💰 Settle", "fa": "💰 تسویه نهایی"},
+    "btn_lang": {"en": "🌐 Language", "fa": "🌐 تغییر زبان"},
+    "btn_help": {"en": "❓ Help", "fa": "❓ راهنما"},
+    "expense_menu_title": {
+        "en": "💸 *Log Expense*\n\nChoose an existing meal to add payment, or log a new expense:",
+        "fa": "💸 *ثبت هزینه*\n\nیک وعده موجود را برای اضافه پرداخت انتخاب کنید یا گزینه جدید را بزنید:",
+    },
+    "btn_new_meal_expense": {
+        "en": "➕ New Meal Expense",
+        "fa": "➕ وعده غذایی جدید",
+    },
+    "btn_general_expense": {
+        "en": "🪵 General Shared Expense (Firewood, Pass, etc.)",
+        "fa": "🪵 هزینه عمومی (هیزم، ورودی، بنزین و...)",
+    },
+    "meal_select_preset": {
+        "en": "🍽 Select a meal name preset:",
+        "fa": "🍽 نام وعده را انتخاب کنید:",
+    },
+    "meal_ask_desc_explicit": {
+        "en": "🍽 *{category} Selected*\n\nPlease type a description for this meal (e.g., *Pancakes & Bacon*) or tap **Skip Description** below:",
+        "fa": "🍽 *{category} انتخاب شد*\n\nلطفاً توضیحات این وعده را تایپ کنید (مثلاً *پنکیک و بیکن*) یا دکمه **رد کردن توضیحات** را بزنید:",
+    },
+    "btn_skip_desc": {
+        "en": "⏩ Skip Description",
+        "fa": "⏩ رد کردن توضیحات",
+    },
+    "meal_ask_custom_desc": {
+        "en": "✏️ *Custom Meal*\n\nPlease type the description for this meal (e.g., Campfire Pizza):",
+        "fa": "✏️ *وعده سفارشی*\n\nلطفاً توضیحات این وعده را تایپ کنید (مثلاً پیتزا آتشین):",
+    },
+    "expense_select_preset": {
+        "en": "💸 Select a shared expense category:",
+        "fa": "💸 دسته‌بندی هزینه مشترک را انتخاب کنید:",
+    },
+    "select_amount_preset": {
+        "en": "💵 Select payment amount for '{name}' (or type a custom number):",
+        "fa": "💵 مبلغ پرداخت برای '{name}' را انتخاب کنید (یا عدد تایپ کنید):",
+    },
+    "lang_prompt": {
+        "en": "🌐 Select your preferred language:",
+        "fa": "🌐 زبان خود را انتخاب کنید:",
+    },
     "trip_created": {
         "en": "🏕 Trip '{name}' created! Families can join with /join <weight>\n\nExample: /join 2.5 (2 adults + 1 kid)",
         "fa": "🏕 سفر '{name}' ساخته شد! خانواده\u200cها با /join <وزن> عضو شوند\n\nمثال: /join 2.5 (۲ بزرگسال + ۱ بچه)",
@@ -72,6 +126,14 @@ STRINGS = {
     "skip_confirmed": {
         "en": "✅ {family} marked as absent from Meal #{number} '{name}'",
         "fa": "✅ {family} از وعده #{number} '{name}' غایب ثبت شد",
+    },
+    "skip_confirmed_with_grouping": {
+        "en": "✅ {family} marked absent from Meal #{number} '{name}'\n\n👥 *Updated Grouping for Meal #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
+        "fa": "✅ {family} از وعده #{number} '{name}' غایب ثبت شد\n\n👥 *گروه‌بندی به‌روزرسانی‌شده برای وعده #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
+    },
+    "grouping_header": {
+        "en": "\n\n👥 *Active Grouping for Meal #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
+        "fa": "\n\n👥 *گروه‌بندی فعال برای وعده #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
     },
     "expense_logged": {
         "en": "✅ Shared expense '{description}' (${amount:.2f}) logged by {family}",

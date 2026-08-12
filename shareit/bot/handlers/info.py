@@ -6,6 +6,7 @@ from bot.db import (
     get_active_trip, get_families, get_meals,
     get_meal_contributions, get_meal_absences,
     get_shared_expenses, get_past_trips, get_trip_by_id,
+    get_meal_grouping_members,
 )
 from bot.settlement import calculate_settlement
 from bot.i18n import t
@@ -13,7 +14,7 @@ from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
 
 
 async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /meals — show detailed meal breakdown."""
+    """Handle /meals — show detailed meal breakdown and active groupings."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
@@ -38,7 +39,7 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     for meal in meals:
         contributions = await get_meal_contributions(db_path, meal["id"])
-        absences = await get_meal_absences(db_path, meal["id"])
+        group_members = await get_meal_grouping_members(db_path, meal["id"])
         total = sum(c["amount"] for c in contributions)
 
         text += f"\n\n*#{meal['meal_number']} {esc(meal['name'])}*"
@@ -48,14 +49,18 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Who paid
         if contributions:
             paid_parts = [f"{esc(family_names.get(c['family_id'], '?'))} ${c['amount']:.2f}" for c in contributions]
-            text += "\n  💳 " + ", ".join(paid_parts)
+            text += "\n  💳 Paid: " + ", ".join(paid_parts)
 
-        # Who skipped
-        if absences:
-            skipped_names = [esc(family_names.get(fid, "?")) for fid in absences]
-            text += "\n  🚫 Skipped: " + ", ".join(skipped_names)
+        # Active Grouping
+        if group_members:
+            active_parts = [f"{esc(m['family_name'])} ({m['weight']})" for m in group_members if m.get("is_active", 1) != 0]
+            skipped_parts = [esc(m['family_name']) for m in group_members if m.get("is_active", 1) == 0]
+            if active_parts:
+                text += "\n  👥 Grouping: " + ", ".join(active_parts)
+            if skipped_parts:
+                text += "\n  🚫 Skipped: " + ", ".join(skipped_parts)
 
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await reply_ephemeral(update, context, text, parse_mode="Markdown")
 
 
 async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -119,7 +124,7 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         else:
             text += t("settle_no_transfers", lang)
 
-        await update.message.reply_text(text)
+        await reply_ephemeral(update, context, text)
         return
 
     # Show list of past trips
@@ -130,4 +135,4 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         text += f"\n  {i}. {trip['name']} — {len(families)} families, {len(meals)} meals"
 
     text += t("history_hint", lang)
-    await update.message.reply_text(text)
+    await reply_ephemeral(update, context, text)

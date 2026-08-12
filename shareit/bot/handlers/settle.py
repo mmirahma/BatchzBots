@@ -4,10 +4,11 @@ from telegram.ext import ContextTypes
 from bot.db import (
     get_active_trip, get_families, get_meals,
     get_meal_contributions, get_meal_absences, get_shared_expenses,
+    get_meal_grouping_members,
 )
 from bot.settlement import calculate_settlement
 from bot.i18n import t
-from bot.handlers._helpers import require_group, get_lang
+from bot.handlers._helpers import require_group, get_lang, reply_ephemeral
 
 
 async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -20,7 +21,7 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
-        await update.message.reply_text(t("no_active_trip", lang))
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
     families = await get_families(db_path, trip["id"])
@@ -28,21 +29,29 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     expenses = await get_shared_expenses(db_path, trip["id"])
 
     if not meals and not expenses:
-        await update.message.reply_text(t("nothing_to_settle", lang))
+        await reply_ephemeral(update, context, t("nothing_to_settle", lang))
         return
 
     # Build data for settlement calculation
     meal_contributions = {}
     meal_absences = {}
+    meal_groupings = {}
     for meal in meals:
         contributions = await get_meal_contributions(db_path, meal["id"])
         meal_contributions[meal["id"]] = [{"family_id": c["family_id"], "amount": c["amount"]} for c in contributions]
         absences = await get_meal_absences(db_path, meal["id"])
         meal_absences[meal["id"]] = absences
+        group_members = await get_meal_grouping_members(db_path, meal["id"])
+        meal_groupings[meal["id"]] = [
+            {"family_id": gm["family_id"], "weight": gm["weight"], "is_active": gm["is_active"]}
+            for gm in group_members
+        ]
 
-    expense_data = [{"family_id": e["family_id"], "description": e["description"], "amount": e["amount"]} for e in expenses]
+    expense_data = [{"family_id": e["family_id"], "description": e["description"], "amount": e["amount"], "id": e["id"]} for e in expenses]
 
-    result = calculate_settlement(families, meals, meal_contributions, meal_absences, expense_data)
+    result = calculate_settlement(
+        families, meals, meal_contributions, meal_absences, expense_data, meal_groupings=meal_groupings
+    )
     family_names = {f["id"]: f["name"] for f in families}
 
     # Format output
@@ -65,4 +74,4 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         text += t("settle_no_transfers", lang)
 
-    await update.message.reply_text(text)
+    await reply_ephemeral(update, context, text)

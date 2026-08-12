@@ -11,18 +11,39 @@ from bot.i18n import t
 
 logger = logging.getLogger(__name__)
 
-EPHEMERAL_DELETE_SECONDS = 120  # 2 minutes
+EPHEMERAL_DELETE_SECONDS = 60  # 1 minute
 
 
-async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message:
-    """Send a reply that auto-deletes after 2 minutes."""
-    msg = await update.message.reply_text(text, **kwargs)
-    context.job_queue.run_once(
-        _delete_message_job,
-        when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-        data={"chat_id": msg.chat_id, "message_id": msg.message_id},
-        name=f"ephemeral_{msg.chat_id}_{msg.message_id}",
-    )
+async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:
+    """Send a reply that auto-deletes after 1 minute, and schedule deletion of user trigger message."""
+    target = update.effective_message
+    if not target and update.callback_query:
+        target = update.callback_query.message
+
+    if target:
+        msg = await target.reply_text(text, **kwargs)
+    elif update.effective_chat:
+        msg = await context.bot.send_message(chat_id=update.effective_chat.id, text=text, **kwargs)
+    else:
+        return None
+
+    if msg:
+        context.job_queue.run_once(
+            _delete_message_job,
+            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+            data={"chat_id": msg.chat_id, "message_id": msg.message_id},
+            name=f"ephemeral_{msg.chat_id}_{msg.message_id}",
+        )
+
+    # Schedule deletion of user's command message after 1 minute as well
+    if update.effective_message and update.effective_chat and not update.callback_query:
+        context.job_queue.run_once(
+            _delete_message_job,
+            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+            data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
+            name=f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}",
+        )
+
     return msg
 
 
@@ -56,8 +77,8 @@ async def require_group(update: Update, context: ContextTypes.DEFAULT_TYPE = Non
     if update.effective_chat.type == "private":
         if context:
             await reply_ephemeral(update, context, t("group_only", "en"))
-        else:
-            await update.message.reply_text(t("group_only", "en"))
+        elif update.effective_message:
+            await update.effective_message.reply_text(t("group_only", "en"))
         return False
     return True
 
@@ -65,8 +86,11 @@ async def require_group(update: Update, context: ContextTypes.DEFAULT_TYPE = Non
 async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE) -> tuple:
     """
     Get active trip and family for the current user.
-    Returns (trip, family, lang). Sends error messages if not found.
+    Returns (trip, family, lang). If not joined, prompts with Join buttons.
     """
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from bot.handlers.family import WEIGHT_OPTIONS
+
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -79,7 +103,19 @@ async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     family = await get_family(db_path, trip["id"], user_id)
     if not family:
-        await reply_ephemeral(update, context, t("join_first", lang))
+        # Prompt directly with Join weight buttons
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        msg_text = f"⚠️ {t('join_first', lang)}\n\n{t('join_select_weight', lang)}"
+        await reply_ephemeral(update, context, msg_text, reply_markup=InlineKeyboardMarkup(buttons))
         return trip, None, lang
 
     return trip, family, lang

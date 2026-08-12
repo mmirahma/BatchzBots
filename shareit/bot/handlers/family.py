@@ -34,7 +34,7 @@ async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 row = []
         if row:
             buttons.append(row)
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             t("join_select_weight", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
         return
@@ -88,7 +88,8 @@ async def join_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await add_family(db_path, trip["id"], name, weight, user_id)
         text = t("family_joined", lang, name=name, weight=weight)
 
-    await query.edit_message_text(text)
+    menu_button = InlineKeyboardMarkup([[InlineKeyboardButton("🏕 Open Main Menu", callback_data="menu_open")]])
+    await query.edit_message_text(text, reply_markup=menu_button)
     # Schedule deletion
     context.job_queue.run_once(
         _delete_message_job,

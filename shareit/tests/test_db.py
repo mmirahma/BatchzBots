@@ -151,3 +151,24 @@ async def test_get_meal_by_number(db_path):
     assert meal["name"] == "Lunch"
     meal = await get_meal_by_number(db_path, trip_id, 99)
     assert meal is None
+
+
+@pytest.mark.asyncio
+async def test_groupings_and_associations(db_path):
+    from bot.db import get_meal_grouping_members
+    trip_id = await create_trip(db_path, "Camp", chat_id=100)
+    f1 = await add_family(db_path, trip_id, "Family A", 2.0, telegram_user_id=1)
+    f2 = await add_family(db_path, trip_id, "Family B", 1.5, telegram_user_id=2)
+    meal_id = await add_meal(db_path, trip_id, "Dinner", f1, 40.0)
+
+    members = await get_meal_grouping_members(db_path, meal_id)
+    assert len(members) == 2
+    assert members[0]["weight"] == 2.0
+    assert members[1]["weight"] == 1.5
+    assert members[0]["is_active"] == 1
+
+    await add_meal_absence(db_path, meal_id, f2)
+    members_after = await get_meal_grouping_members(db_path, meal_id)
+    m2 = next(m for m in members_after if m["family_id"] == f2)
+    assert m2["is_active"] == 0
+

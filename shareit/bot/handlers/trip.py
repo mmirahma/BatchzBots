@@ -84,7 +84,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
-        await update.message.reply_text(t("no_active_trip", lang))
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
     families = await get_families(db_path, trip["id"])
@@ -113,4 +113,4 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         text += t("status_no_data", lang)
 
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await reply_ephemeral(update, context, text, parse_mode="Markdown")
