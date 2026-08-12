@@ -9,6 +9,7 @@ EXPENSE_PRESETS = [
     [("Firewood 🪵", "pexp_Firewood"), ("Park Entry 🏞", "pexp_Park Entry")],
     [("Groceries 🛒", "pexp_Groceries"), ("Ice 🧊", "pexp_Ice")],
     [("Campsite Fee ⛺️", "pexp_Campsite Fee"), ("Gas / Fuel ⛽️", "pexp_Gas")],
+    [("Custom ✏️", "pexp_Custom")],
 ]
 
 AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
@@ -99,27 +100,44 @@ async def prompt_general_expense_categories(update: Update, context: ContextType
 
 async def expense_preset_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle expense preset category selection."""
+    import time as _time
     query = update.callback_query
     await query.answer()
     category = query.data.replace("pexp_", "")
-    context.user_data["pending_expense_desc"] = category
-
     lang = await get_lang(update, context)
-    buttons = []
-    row = []
-    for amt in AMOUNT_PRESETS:
-        label = f"${int(amt)}"
-        row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
-        if len(row) == 3:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
+    chat_id = update.effective_chat.id
 
-    await query.edit_message_text(
-        t("select_amount_preset", lang, name=category),
-        reply_markup=InlineKeyboardMarkup(buttons),
-    )
+    if category == "Custom":
+        context.user_data["pending_expense_prompt"] = {
+            "category": "Custom",
+            "chat_id": chat_id,
+            "timestamp": _time.time(),
+        }
+        await query.edit_message_text(t("expense_ask_custom_desc", lang), parse_mode="Markdown")
+    else:
+        context.user_data["pending_expense_desc"] = category
+        context.user_data["pending_expense_prompt"] = {
+            "category": category,
+            "chat_id": chat_id,
+            "timestamp": _time.time(),
+        }
+
+        buttons = []
+        row = []
+        for amt in AMOUNT_PRESETS:
+            label = f"${int(amt)}"
+            row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
+            if len(row) == 3:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        await query.edit_message_text(
+            t("expense_ask_desc", lang, category=category),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown",
+        )
 
 
 async def expense_amount_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

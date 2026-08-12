@@ -2,7 +2,7 @@
 
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-from bot.handlers.menu import menu_handler, menu_callback_handler
+from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler
 from bot.handlers.family import join_handler, join_callback_handler
 from bot.handlers.meal import (
@@ -54,6 +54,6 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(expense_amount_callback_handler, pattern=r"^pexpamt_"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
 
-    # Plain text handler for pending contribute amount (must be last — lowest priority)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, contribute_amount_handler))
+    # Plain text handler for bottom ReplyKeyboard buttons & pending inputs (must be last — lowest priority)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_menu_handler))
 

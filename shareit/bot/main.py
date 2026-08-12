@@ -4,6 +4,7 @@ import logging
 from datetime import time, timezone, timedelta
 
 from telegram.ext import Application
+from telegram.request import HTTPXRequest
 
 from config import get_config
 from bot import __version__
@@ -42,7 +43,15 @@ def main() -> None:
         logger.error("BACHZTAB_BOT_TOKEN environment variable not set!")
         return
 
-    app = Application.builder().token(config.bot_token).post_init(post_init).build()
+    # Configure robust network connection timeouts (30s) for high latency / network glitches
+    request = HTTPXRequest(
+        connect_timeout=30.0,
+        read_timeout=30.0,
+        write_timeout=30.0,
+        pool_timeout=30.0,
+    )
+
+    app = Application.builder().token(config.bot_token).request(request).post_init(post_init).build()
     app.bot_data["db_path"] = config.db_path
 
     register_handlers(app)
@@ -55,7 +64,7 @@ def main() -> None:
     )
 
     logger.info(f"Starting BachzTab bot v{__version__}...")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True, bootstrap_retries=-1)
 
 
 if __name__ == "__main__":

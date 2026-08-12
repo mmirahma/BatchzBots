@@ -5,6 +5,7 @@ STRINGS = {
         "en": "🏕 *BachzTab — Main Dashboard*\n\nTap a button below to perform an action:",
         "fa": "🏕 *BachzTab — داشبورد اصلی*\n\nبرای انجام عملیات، دکمه مورد نظر را لمس کنید:",
     },
+    "btn_join": {"en": "➕ Join Trip", "fa": "➕ عضویت در سفر"},
     "btn_status": {"en": "🏕 Status", "fa": "🏕 خلاصه سفر"},
     "btn_log_expense": {"en": "💸 Log Expense", "fa": "💸 ثبت هزینه"},
     "btn_log_meal": {"en": "🍽 Log Meal", "fa": "🍽 ثبت وعده"},
@@ -26,6 +27,14 @@ STRINGS = {
     "btn_general_expense": {
         "en": "🪵 General Shared Expense (Firewood, Pass, etc.)",
         "fa": "🪵 هزینه عمومی (هیزم، ورودی، بنزین و...)",
+    },
+    "expense_ask_desc": {
+        "en": "💸 *{category} Selected*\n\nPlease type a specific description (e.g., *2 Bundles from Store*) or select payment amount below:",
+        "fa": "💸 *{category} انتخاب شد*\n\nلطفاً توضیحات (مثلاً *۲ بسته از فروشگاه*) را تایپ کنید یا مبلغ را از دکمه‌های زیر انتخاب کنید:",
+    },
+    "expense_ask_custom_desc": {
+        "en": "✏️ *Custom Expense*\n\nPlease type the description for this expense (e.g., *Kayak Rental*):",
+        "fa": "✏️ *هزینه سفارشی*\n\nلطفاً توضیحات این هزینه را تایپ کنید (مثلاً *اجاره قایق*):",
     },
     "meal_select_preset": {
         "en": "🍽 Select a meal name preset:",
