@@ -206,123 +206,115 @@ async def contribute_callback_handler(update: Update, context: ContextTypes.DEFA
 
 
 async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle plain text inputs for pending meal/expense descriptions or contribute amounts."""
+    """Handle plain text inputs for pending meal/expense descriptions or amounts."""
     import time as _time
 
-    # Check pending general expense description prompt
+    chat_id = update.effective_chat.id
+    now = _time.time()
+    text = update.message.text.strip()
+
+    # 1. Check if user typed a number for pending general expense amount
+    pending_exp_amt = context.user_data.get("pending_expense_amount_prompt")
+    if pending_exp_amt and now - pending_exp_amt.get("timestamp", 0) <= 120 and chat_id == pending_exp_amt.get("chat_id"):
+        try:
+            val = float(text)
+            if val > 0:
+                context.user_data.pop("pending_expense_amount_prompt", None)
+                context.user_data.pop("pending_expense_prompt", None)
+                desc = context.user_data.pop("pending_expense_desc", pending_exp_amt.get("desc", "Shared Expense"))
+                trip, family, lang = await require_family(update, context)
+                if family:
+                    from bot.db import add_shared_expense
+                    db_path = context.bot_data["db_path"]
+                    expense_id = await add_shared_expense(db_path, trip["id"], family["id"], desc, val)
+                    context.user_data["last_action"] = {"type": "expense", "expense_id": expense_id, "trip_id": trip["id"]}
+                    await reply_ephemeral(update, context,
+                        t("expense_logged", lang, description=desc, amount=val, family=family["name"])
+                    )
+                return
+        except ValueError:
+            pass  # Not a number, fall through to description text check
+
+    # 2. Check pending general expense description prompt (text string typed)
     pending_exp = context.user_data.get("pending_expense_prompt")
-    if (
-        pending_exp
-        and _time.time() - pending_exp.get("timestamp", 0) <= 120
-        and update.effective_chat.id == pending_exp.get("chat_id")
-    ):
-        text = update.message.text.strip()
+    if pending_exp and now - pending_exp.get("timestamp", 0) <= 120 and chat_id == pending_exp.get("chat_id"):
         category = pending_exp.get("category", "Shared Expense")
+        desc = text if category == "Custom" else f"{category} - {text}"
+        context.user_data.pop("pending_expense_prompt", None)
+        context.user_data["pending_expense_desc"] = desc
+        context.user_data["pending_expense_amount_prompt"] = {"desc": desc, "chat_id": chat_id, "timestamp": now}
 
-        is_amount = False
+        lang = await get_lang(update, context)
+        buttons = []
+        row = []
+        for amt in AMOUNT_PRESETS:
+            label = f"${int(amt)}"
+            row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
+            if len(row) == 3:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        await reply_ephemeral(update, context,
+            t("select_amount_preset", lang, name=desc),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        return
+
+    # 3. Check if user typed a number for pending meal amount
+    pending_meal_amt = context.user_data.get("pending_meal_amount_prompt")
+    if pending_meal_amt and now - pending_meal_amt.get("timestamp", 0) <= 120 and chat_id == pending_meal_amt.get("chat_id"):
         try:
             val = float(text)
-            is_amount = True
+            if val >= 0:
+                context.user_data.pop("pending_meal_amount_prompt", None)
+                context.user_data.pop("pending_meal_desc", None)
+                name = context.user_data.pop("pending_meal_name", pending_meal_amt.get("name", "Meal"))
+                trip, family, lang = await require_family(update, context)
+                if family:
+                    db_path = context.bot_data["db_path"]
+                    amount_val = val if val > 0 else None
+                    meal_id = await add_meal(db_path, trip["id"], name, family["id"], amount_val)
+                    meals = await get_meals(db_path, trip["id"])
+                    meal = next((m for m in meals if m["id"] == meal_id), None)
+                    meal_number = meal["meal_number"] if meal else "?"
+                    members = await get_meal_grouping_members(db_path, meal_id)
+                    members_list_str, total_weight = _format_grouping_summary(members)
+                    grouping_summary_str = t("grouping_header", lang, number=meal_number, name=name, members_list=members_list_str, total_weight=total_weight)
+                    base_msg = t("meal_logged", lang, number=meal_number, name=name, amount=val, family=family["name"]) if amount_val else t("meal_created", lang, number=meal_number, name=name)
+                    await reply_ephemeral(update, context, base_msg + grouping_summary_str, parse_mode="Markdown")
+                return
         except ValueError:
-            is_amount = False
+            pass  # Not a number, fall through to description text check
 
-        if is_amount and category != "Custom" and context.user_data.get("pending_expense_desc"):
-            # User typed an amount directly (e.g. "25")
-            context.user_data.pop("pending_expense_prompt", None)
-            desc = context.user_data.pop("pending_expense_desc", category)
-            trip, family, lang = await require_family(update, context)
-            if family and val > 0:
-                from bot.db import add_shared_expense
-                db_path = context.bot_data["db_path"]
-                expense_id = await add_shared_expense(db_path, trip["id"], family["id"], desc, val)
-                context.user_data["last_action"] = {"type": "expense", "expense_id": expense_id, "trip_id": trip["id"]}
-                await reply_ephemeral(update, context,
-                    t("expense_logged", lang, description=desc, amount=val, family=family["name"])
-                )
-            return
-        elif not is_amount:
-            # User typed a description string (e.g. "2 Bundles from Store" or "Kayak Rental")
-            context.user_data.pop("pending_expense_prompt", None)
-            desc = text if category == "Custom" else f"{category} - {text}"
-            context.user_data["pending_expense_desc"] = desc
-
-            lang = await get_lang(update, context)
-            buttons = []
-            row = []
-            for amt in AMOUNT_PRESETS:
-                label = f"${int(amt)}"
-                row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
-                if len(row) == 3:
-                    buttons.append(row)
-                    row = []
-            if row:
-                buttons.append(row)
-
-            await reply_ephemeral(update, context,
-                t("select_amount_preset", lang, name=desc),
-                reply_markup=InlineKeyboardMarkup(buttons),
-            )
-            return
-
-    # Check pending meal description prompt first
+    # 4. Check pending meal description prompt (text string typed)
     pending_desc = context.user_data.get("pending_meal_desc")
-    if (
-        pending_desc
-        and _time.time() - pending_desc.get("timestamp", 0) <= 120
-        and update.effective_chat.id == pending_desc.get("chat_id")
-    ):
-        text = update.message.text.strip()
+    if pending_desc and now - pending_desc.get("timestamp", 0) <= 120 and chat_id == pending_desc.get("chat_id"):
         category = pending_desc.get("category", "Meal")
+        name = text if category == "Custom" else f"{category} - {text}"
+        context.user_data.pop("pending_meal_desc", None)
+        context.user_data["pending_meal_name"] = name
+        context.user_data["pending_meal_amount_prompt"] = {"name": name, "chat_id": chat_id, "timestamp": now}
 
-        is_amount = False
-        try:
-            val = float(text)
-            is_amount = True
-        except ValueError:
-            is_amount = False
-
-        if is_amount and category != "Custom" and context.user_data.get("pending_meal_name"):
-            # User typed an amount directly (e.g. "50")
-            context.user_data.pop("pending_meal_desc", None)
-            amount_val = val if val > 0 else None
-            name = context.user_data.pop("pending_meal_name", category)
-            trip, family, lang = await require_family(update, context)
-            if family:
-                db_path = context.bot_data["db_path"]
-                meal_id = await add_meal(db_path, trip["id"], name, family["id"], amount_val)
-                meals = await get_meals(db_path, trip["id"])
-                meal = next((m for m in meals if m["id"] == meal_id), None)
-                meal_number = meal["meal_number"] if meal else "?"
-                members = await get_meal_grouping_members(db_path, meal_id)
-                members_list_str, total_weight = _format_grouping_summary(members)
-                grouping_summary_str = t("grouping_header", lang, number=meal_number, name=name, members_list=members_list_str, total_weight=total_weight)
-                base_msg = t("meal_logged", lang, number=meal_number, name=name, amount=val, family=family["name"]) if amount_val else t("meal_created", lang, number=meal_number, name=name)
-                await update.effective_message.reply_text(base_msg + grouping_summary_str, parse_mode="Markdown")
-            return
-        elif not is_amount:
-            # User typed a description string (e.g. "Pancakes & Bacon")
-            context.user_data.pop("pending_meal_desc", None)
-            name = text if category == "Custom" else f"{category} - {text}"
-            context.user_data["pending_meal_name"] = name
-
-            lang = await get_lang(update, context)
-            buttons = []
-            row = []
-            for amt in AMOUNT_PRESETS:
-                label = f"${int(amt)}"
-                row.append(InlineKeyboardButton(label, callback_data=f"pamt_{amt:.2f}"))
-                if len(row) == 3:
-                    buttons.append(row)
-                    row = []
-            if row:
+        lang = await get_lang(update, context)
+        buttons = []
+        row = []
+        for amt in AMOUNT_PRESETS:
+            label = f"${int(amt)}"
+            row.append(InlineKeyboardButton(label, callback_data=f"pamt_{amt:.2f}"))
+            if len(row) == 3:
                 buttons.append(row)
-            buttons.append([InlineKeyboardButton("Create Slot ($0)", callback_data="pamt_0.0")])
+                row = []
+        if row:
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("Create Slot ($0)", callback_data="pamt_0.0")])
 
-            await update.effective_message.reply_text(
-                t("select_amount_preset", lang, name=name),
-                reply_markup=InlineKeyboardMarkup(buttons),
-            )
-            return
+        await reply_ephemeral(update, context,
+            t("select_amount_preset", lang, name=name),
+            reply_markup=InlineKeyboardMarkup(buttons),
+        )
+        return
 
     # Check pending contribute amount
     pending = context.user_data.get("pending_contribute")

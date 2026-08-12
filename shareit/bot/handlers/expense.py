@@ -121,6 +121,11 @@ async def expense_preset_callback_handler(update: Update, context: ContextTypes.
             "chat_id": chat_id,
             "timestamp": _time.time(),
         }
+        context.user_data["pending_expense_amount_prompt"] = {
+            "desc": category,
+            "chat_id": chat_id,
+            "timestamp": _time.time(),
+        }
 
         buttons = []
         row = []
@@ -150,6 +155,9 @@ async def expense_amount_callback_handler(update: Update, context: ContextTypes.
         return
 
     description = context.user_data.pop("pending_expense_desc", "Shared Expense")
+    context.user_data.pop("pending_expense_amount_prompt", None)
+    context.user_data.pop("pending_expense_prompt", None)
+
     trip, family, lang = await require_family(update, context)
     if not family:
         return
