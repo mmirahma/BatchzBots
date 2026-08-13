@@ -29,8 +29,16 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     families = await get_families(db_path, trip["id"])
     meals = await get_meals(db_path, trip["id"])
 
+    buttons = [
+        [
+            InlineKeyboardButton(t("btn_add_meal", lang), callback_data="menu_meal"),
+            InlineKeyboardButton(t("btn_skip", lang), callback_data="menu_skip"),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(buttons)
+
     if not meals:
-        await reply_ephemeral(update, context, t("no_meals_yet", lang))
+        await reply_ephemeral(update, context, t("no_meals_yet", lang), reply_markup=reply_markup)
         return
 
     esc = lambda s: escape_markdown(str(s), version=1)
@@ -60,7 +68,7 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             if skipped_parts:
                 text += "\n  🚫 Skipped: " + ", ".join(skipped_parts)
 
-    await reply_ephemeral(update, context, text, parse_mode="Markdown")
+    await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
 
 
 async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

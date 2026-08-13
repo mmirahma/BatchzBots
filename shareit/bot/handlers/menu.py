@@ -14,9 +14,9 @@ def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboar
         keyboard = [[KeyboardButton(t("btn_join", lang))]]
     else:
         keyboard = [
-            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_skip", lang))],
-            [KeyboardButton(t("btn_meals", lang)), KeyboardButton(t("btn_status", lang))],
-            [KeyboardButton(t("btn_settle", lang)), KeyboardButton(t("btn_lang", lang))],
+            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_meals", lang))],
+            [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
+            [KeyboardButton(t("btn_lang", lang))],
         ]
     return ReplyKeyboardMarkup(
         keyboard,

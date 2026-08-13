@@ -10,6 +10,7 @@ STRINGS = {
     "btn_log_expense": {"en": "💸 Log Expense", "fa": "💸 ثبت هزینه"},
     "btn_log_meal": {"en": "🍽 Log Meal", "fa": "🍽 ثبت وعده"},
     "btn_contribute": {"en": "💳 Contribute", "fa": "💳 اضافه پرداخت"},
+    "btn_add_meal": {"en": "➕ Add New Meal", "fa": "➕ اضافه کردن وعده جدید"},
     "btn_skip": {"en": "🚫 Skip Meal", "fa": "🚫 غیبت وعده"},
     "btn_expense": {"en": "💸 Expense", "fa": "💸 هزینه مشترک"},
     "btn_meals": {"en": "📋 Meals", "fa": "📋 لیست وعده‌ها"},
