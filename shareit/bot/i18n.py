@@ -18,7 +18,22 @@ STRINGS = {
     "btn_lang": {"en": "🌐 Language", "fa": "🌐 تغییر زبان"},
     "btn_my_share": {"en": "📊 My Share", "fa": "📊 سهم من"},
     "not_implemented": {"en": "ℹ️ This feature is not implemented yet.", "fa": "ℹ️ این قابلیت هنوز پیاده‌سازی نشده است."},
-    "btn_help": {"en": "❓ Help", "fa": "❓ راهنما"},
+    "join_meal_toggle_title": {
+        "en": "📋 *Select Meal Attendance*\n\nTap any meal to toggle between Attending (✅) and Skipping (🚫):",
+        "fa": "📋 *انتخاب حضور در وعده‌ها*\n\nبرای تغییر بین شرکت (✅) و غیبت (🚫) روی هر وعده کلیک کنید:",
+    },
+    "btn_done": {"en": "✅ Done", "fa": "✅ تایید نهایی"},
+    "btn_attending": {"en": "✅ Attending", "fa": "✅ حاضر (شرکت)"},
+    "btn_skipping": {"en": "🚫 Skipping", "fa": "🚫 غایب (انصراف)"},
+    "join_summary_title": {
+        "en": "🏕 *Family Setup Summary — {family_name}*\n\n👥 Family Share Weight: *{weight}*",
+        "fa": "🏕 *خلاصه ثبت خانواده — {family_name}*\n\n👥 وزن سهم خانواده: *{weight}*",
+    },
+    "join_summary_no_meals": {
+        "en": "\n\nℹ️ *No meals recorded yet in this trip.*",
+        "fa": "\n\nℹ️ *هنوز وعده‌ای برای این سفر ثبت نشده است.*",
+    },
+    "btn_open_menu": {"en": "🏕 Open Main Menu", "fa": "🏕 باز کردن منوی اصلی"},
     "expense_menu_title": {
         "en": "💸 *Log Expense*\n\nChoose an existing meal to add payment, or log a new expense:",
         "fa": "💸 *ثبت هزینه*\n\nیک وعده موجود را برای اضافه پرداخت انتخاب کنید یا گزینه جدید را بزنید:",

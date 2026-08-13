@@ -172,3 +172,9 @@ async def test_groupings_and_associations(db_path):
     m2 = next(m for m in members_after if m["family_id"] == f2)
     assert m2["is_active"] == 0
 
+    from bot.db import remove_meal_absence
+    await remove_meal_absence(db_path, meal_id, f2)
+    members_final = await get_meal_grouping_members(db_path, meal_id)
+    m2_final = next(m for m in members_final if m["family_id"] == f2)
+    assert m2_final["is_active"] == 1
+

@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler
-from bot.handlers.family import join_handler, join_callback_handler
+from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
 from bot.handlers.meal import (
     meal_handler, contribute_handler, contribute_callback_handler, contribute_amount_handler,
     skip_handler, skip_callback_handler, meal_preset_callback_handler, meal_amount_callback_handler,
@@ -44,6 +44,7 @@ def register_handlers(app: Application) -> None:
     # Callback Query Handlers
     app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern=r"^menu_"))
     app.add_handler(CallbackQueryHandler(join_callback_handler, pattern=r"^join_"))
+    app.add_handler(CallbackQueryHandler(join_meal_attendance_callback_handler, pattern=r"^jmat_"))
     app.add_handler(CallbackQueryHandler(contribute_callback_handler, pattern=r"^contrib_"))
     app.add_handler(CallbackQueryHandler(skip_callback_handler, pattern=r"^skip_"))
     app.add_handler(CallbackQueryHandler(meal_preset_callback_handler, pattern=r"^pmeal_"))

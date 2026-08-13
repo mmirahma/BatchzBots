@@ -354,6 +354,29 @@ async def add_meal_absence(db_path: str, meal_id: int, family_id: int) -> None:
         await db.commit()
 
 
+async def remove_meal_absence(db_path: str, meal_id: int, family_id: int) -> None:
+    """Mark a family as present for a meal (removes from meal_absences and updates grouping_members)."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "DELETE FROM meal_absences WHERE meal_id = ? AND family_id = ?",
+            (meal_id, family_id),
+        )
+        # Sync is_active = 1 in grouping_members for this meal's grouping
+        async with db.execute("SELECT grouping_id FROM meals WHERE id = ?", (meal_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row and row[0]:
+                grouping_id = row[0]
+                async with db.execute("SELECT weight FROM families WHERE id = ?", (family_id,)) as f_cursor:
+                    f_row = await f_cursor.fetchone()
+                    f_weight = f_row[0] if f_row else 1.0
+                await db.execute(
+                    "INSERT INTO grouping_members (grouping_id, family_id, weight, is_active) VALUES (?, ?, ?, 1) "
+                    "ON CONFLICT(grouping_id, family_id) DO UPDATE SET is_active = 1, weight = ?",
+                    (grouping_id, family_id, f_weight, f_weight),
+                )
+        await db.commit()
+
+
 async def get_meals(db_path: str, trip_id: int) -> list[dict]:
     """Get all meals for a trip, ordered by meal number."""
     async with aiosqlite.connect(db_path) as db:
