@@ -32,7 +32,7 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     buttons = [
         [
             InlineKeyboardButton(t("btn_add_meal", lang), callback_data="menu_meal"),
-            InlineKeyboardButton(t("btn_skip", lang), callback_data="menu_skip"),
+            InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(buttons)

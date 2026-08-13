@@ -378,25 +378,16 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
 
 
 async def skip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /skip command — shows inline buttons for meal selection."""
+    """Handle /skip command / Manage Meals — opens multi-select meal attendance toggle menu."""
     if not await require_group(update, context):
         return
     trip, family, lang = await require_family(update, context)
     if not family:
         return
 
-    db_path = context.bot_data["db_path"]
-    meals = await get_meals(db_path, trip["id"])
-
-    if not meals:
-        await reply_ephemeral(update, context, t("nothing_to_settle", lang))
-        return
-
-    buttons = [
-        [InlineKeyboardButton(f"#{m['meal_number']} {m['name']}", callback_data=f"skip_{m['id']}")]
-        for m in meals
-    ]
-    await update.effective_message.reply_text(t("skip_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons))
+    from bot.handlers.family import prompt_join_meal_toggles
+    context.user_data.pop("join_attendance_state", None)
+    await prompt_join_meal_toggles(update, context)
 
 
 async def skip_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
