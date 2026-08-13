@@ -16,6 +16,8 @@ STRINGS = {
     "btn_meals": {"en": "📋 Meals", "fa": "📋 لیست وعده‌ها"},
     "btn_settle": {"en": "💰 Settle", "fa": "💰 تسویه نهایی"},
     "btn_lang": {"en": "🌐 Language", "fa": "🌐 تغییر زبان"},
+    "btn_my_share": {"en": "📊 My Share", "fa": "📊 سهم من"},
+    "not_implemented": {"en": "ℹ️ This feature is not implemented yet.", "fa": "ℹ️ این قابلیت هنوز پیاده‌سازی نشده است."},
     "btn_help": {"en": "❓ Help", "fa": "❓ راهنما"},
     "expense_menu_title": {
         "en": "💸 *Log Expense*\n\nChoose an existing meal to add payment, or log a new expense:",

@@ -14,9 +14,9 @@ def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboar
         keyboard = [[KeyboardButton(t("btn_join", lang))]]
     else:
         keyboard = [
-            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_meals", lang))],
-            [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
-            [KeyboardButton(t("btn_lang", lang))],
+            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_my_share", lang))],
+            [KeyboardButton(t("btn_meals", lang)), KeyboardButton(t("btn_status", lang))],
+            [KeyboardButton(t("btn_settle", lang)), KeyboardButton(t("btn_lang", lang))],
         ]
     return ReplyKeyboardMarkup(
         keyboard,
@@ -62,6 +62,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Check against all known button labels in both EN and FA
     btn_expense_en = t("btn_log_expense", "en")
     btn_expense_fa = t("btn_log_expense", "fa")
+    btn_my_share_en = t("btn_my_share", "en")
+    btn_my_share_fa = t("btn_my_share", "fa")
     btn_skip_en = t("btn_skip", "en")
     btn_skip_fa = t("btn_skip", "fa")
     btn_meals_en = t("btn_meals", "en")
@@ -78,6 +80,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if text in (btn_expense_en, btn_expense_fa):
         from bot.handlers.expense import prompt_expense_preset
         await prompt_expense_preset(update, context)
+    elif text in (btn_my_share_en, btn_my_share_fa):
+        await reply_ephemeral(update, context, t("not_implemented", lang))
     elif text in (btn_skip_en, btn_skip_fa):
         from bot.handlers.meal import skip_handler
         await skip_handler(update, context)

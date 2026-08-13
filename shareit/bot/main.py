@@ -3,8 +3,9 @@
 import logging
 from datetime import time, timezone, timedelta
 
-from telegram.ext import Application
+from telegram.ext import Application, ContextTypes
 from telegram.request import HTTPXRequest
+from telegram.error import NetworkError, TimedOut
 
 from config import get_config
 from bot import __version__
@@ -35,6 +36,14 @@ async def post_init(application: Application) -> None:
     logger.info(f"Database initialized at {db_path}")
 
 
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log network timeouts gracefully without dumping traceback noise."""
+    if isinstance(context.error, (NetworkError, TimedOut)):
+        logger.warning(f"Transient Telegram network issue: {context.error}")
+    else:
+        logger.error("Exception while handling an update:", exc_info=context.error)
+
+
 def main() -> None:
     """Start the bot."""
     config = get_config()
@@ -55,6 +64,7 @@ def main() -> None:
     app.bot_data["db_path"] = config.db_path
 
     register_handlers(app)
+    app.add_error_handler(global_error_handler)
 
     # Schedule daily reminder at 6pm Vancouver time
     app.job_queue.run_daily(
