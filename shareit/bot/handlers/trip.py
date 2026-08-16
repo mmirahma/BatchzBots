@@ -95,74 +95,100 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     esc = lambda s: escape_markdown(str(s), version=1)
 
     text = t("status_header", lang, trip_name=esc(trip["name"]))
-    text += t("status_families", lang, count=len(families))
-    for f in families:
-        text += "\n" + t("status_family_item", lang, name=esc(f["name"]), weight=f["weight"])
 
-    if meals or expenses:
+    # 1. Families Table Section
+    if families:
+        text += f"\n👨‍👩‍👧 *Families ({len(families)}):*\n```\n"
+        text += f"{'Family Name':<28} {'Weight':>6}\n"
+        text += "─" * 35 + "\n"
+        for f in families:
+            fname = f["name"][:27]
+            text += f"{fname:<28} {f['weight']:>6.2f}\n"
+        text += "```\n"
+
+    # 2. Meals & Events Section
+    if meals:
         family_names = {f["id"]: f["name"] for f in families}
-        if meals:
-            text += "\n" + t("status_meals", lang, count=len(meals))
-            for meal in meals:
-                contributions = await get_meal_contributions(db_path, meal["id"])
-                total = sum(c["amount"] for c in contributions)
-                text += "\n" + t("status_meal_item", lang, number=meal["meal_number"], name=esc(meal["name"]), total=total)
-                if contributions:
-                    paid_parts = [f"{esc(family_names.get(c['family_id'], 'Family'))} (${c['amount']:.2f})" for c in contributions]
-                    text += t("status_meal_paid_by", lang, paid_list=", ".join(paid_parts))
-        if expenses:
-            text += "\n" + t("status_expenses", lang, count=len(expenses))
-            for exp in expenses:
-                text += "\n" + t("status_expense_item", lang, description=esc(exp["description"]), amount=exp["amount"], family=esc(exp["family_name"]))
+        text += f"🍽 *Meals/Events ({len(meals)}):*\n```\n"
+        text += f"{'#':<3} {'Meal/Event Name':<18} {'Total':>8} {'Payer(s)':<20}\n"
+        text += "─" * 52 + "\n"
+        for meal in meals:
+            contributions = await get_meal_contributions(db_path, meal["id"])
+            total = sum(c["amount"] for c in contributions)
+            if contributions:
+                paid_parts = [f"{family_names.get(c['family_id'], 'Family')[:10]} (${c['amount']:.2f})" for c in contributions]
+                payer_str = ", ".join(paid_parts)
+            else:
+                payer_str = "None"
+            mname = meal["name"][:17]
+            text += f"#{meal['meal_number']:<2} {mname:<18} {f'${total:.2f}':>8} {payer_str:<20}\n"
+        text += "```\n"
 
-        # Bank Status & Visual Bar Graph Section
-        if families:
-            from bot.settlement import calculate_settlement
-            from bot.db import get_meal_absences, get_meal_grouping_members
+    # 3. General Shared Expenses Section
+    if expenses:
+        text += f"💸 *Shared General Expenses ({len(expenses)}):*\n```\n"
+        text += f"{'Description':<20} {'Total':>8} {'Paid By':<20}\n"
+        text += "─" * 50 + "\n"
+        for exp in expenses:
+            desc = exp["description"][:19]
+            payer = exp["family_name"][:19]
+            amt_str = f"${exp['amount']:.2f}"
+            text += f"{desc:<20} {amt_str:>8} {payer:<20}\n"
+        text += "```\n"
 
-            meal_conts = {}
-            meal_abs = {}
-            meal_groups = {}
-            for m in meals:
-                meal_conts[m["id"]] = await get_meal_contributions(db_path, m["id"])
-                meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
-                meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
+    # 4. Bank Status Section
+    if families and (meals or expenses):
+        from bot.settlement import calculate_settlement
+        from bot.db import get_meal_absences, get_meal_grouping_members
 
-            res = calculate_settlement(
-                families=families,
-                meals=meals,
-                meal_contributions=meal_conts,
-                meal_absences=meal_abs,
-                shared_expenses=expenses,
-                meal_groupings=meal_groups,
-            )
+        meal_conts = {}
+        meal_abs = {}
+        meal_groups = {}
+        for m in meals:
+            meal_conts[m["id"]] = await get_meal_contributions(db_path, m["id"])
+            meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
+            meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
 
-            balances = res.balances
-            max_abs = max((abs(b) for b in balances.values()), default=0.0)
+        res = calculate_settlement(
+            families=families,
+            meals=meals,
+            meal_contributions=meal_conts,
+            meal_absences=meal_abs,
+            shared_expenses=expenses,
+            meal_groupings=meal_groups,
+        )
 
-            text += t("status_bank_header", lang)
-            BAR_LEN = 8
-            for f in families:
-                bal = round(balances.get(f["id"], 0.0), 2)
-                fname = esc(f["name"])
+        balances = res.balances
 
-                if abs(bal) < 0.01:
-                    bar = "▒" * BAR_LEN
-                    text += f"\n  • {fname}: ⚪ $0.00 `[{bar}]`"
-                elif bal > 0:
-                    ratio = min(bal / max_abs, 1.0) if max_abs > 0 else 1.0
-                    filled = max(1, int(round(ratio * BAR_LEN)))
-                    empty = BAR_LEN - filled
-                    bar = "🟩" * filled + "▒" * empty
-                    text += f"\n  • {fname}: 🟢 +${bal:.2f} `[{bar}]`"
-                else:
-                    abs_b = abs(bal)
-                    ratio = min(abs_b / max_abs, 1.0) if max_abs > 0 else 1.0
-                    filled = max(1, int(round(ratio * BAR_LEN)))
-                    empty = BAR_LEN - filled
-                    bar = "🟥" * filled + "▒" * empty
-                    text += f"\n  • {fname}: 🔴 -${abs_b:.2f} `[{bar}]`"
-    else:
+        paid_totals = {f["id"]: 0.0 for f in families}
+        for m in meals:
+            for c in meal_conts.get(m["id"], []):
+                if c["family_id"] in paid_totals:
+                    paid_totals[c["family_id"]] += c["amount"]
+        for e in expenses:
+            if e["family_id"] in paid_totals:
+                paid_totals[e["family_id"]] += e["amount"]
+
+        text += "🏦 *Bank Status & Family Balances:*\n```\n"
+        text += f"{'Family Name':<20} {'Paid':>8} {'Owed':>8} {'Net Balance':<15}\n"
+        text += "─" * 53 + "\n"
+        for f in families:
+            fid = f["id"]
+            bal = round(balances.get(fid, 0.0), 2)
+            paid_amt = paid_totals.get(fid, 0.0)
+            owed_amt = paid_amt - bal
+            fname = f["name"][:19]
+
+            if abs(bal) < 0.01:
+                bal_str = "⚪ $0.00"
+            elif bal > 0:
+                bal_str = f"🟢 +${bal:.2f}"
+            else:
+                bal_str = f"🔴 -${abs(bal):.2f}"
+
+            text += f"{fname:<20} {f'${paid_amt:.2f}':>8} {f'${owed_amt:.2f}':>8} {bal_str:<15}\n"
+        text += "```"
+    elif not meals and not expenses:
         text += t("status_no_data", lang)
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
