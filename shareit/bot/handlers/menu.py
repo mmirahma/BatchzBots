@@ -23,6 +23,7 @@ def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboar
         keyboard,
         resize_keyboard=True,
         one_time_keyboard=False,
+        is_persistent=True,
     )
 
 
