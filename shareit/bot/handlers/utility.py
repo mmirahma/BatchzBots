@@ -138,10 +138,18 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         group_title=group_title,
     )
 
-    clean_title = "".join(c for c in group_title if c.isalnum() or c in (" ", "_", "-")).strip()
-    if not clean_title:
-        clean_title = "Group_Expenses"
-    filename = f"{clean_title.replace(' ', '_')}.xlsx"
+    raw_channel = update.effective_chat.title if update.effective_chat and update.effective_chat.title else "Group"
+    raw_trip = trip["name"] if trip and trip.get("name") else "Trip"
+
+    clean_channel = "".join(c for c in raw_channel if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    clean_trip = "".join(c for c in raw_trip if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+
+    if not clean_channel:
+        clean_channel = "Group"
+    if not clean_trip:
+        clean_trip = "Trip"
+
+    filename = f"{clean_channel}-{clean_trip}.xlsx"
     caption = t("export_caption", lang, trip_name=group_title)
 
     from datetime import timedelta
