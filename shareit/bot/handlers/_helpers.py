@@ -14,18 +14,27 @@ logger = logging.getLogger(__name__)
 EPHEMERAL_DELETE_SECONDS = 60  # 1 minute
 
 
+def schedule_message_deletion(chat_id: int, message_id: int, context: ContextTypes.DEFAULT_TYPE, delay_seconds: int = EPHEMERAL_DELETE_SECONDS) -> None:
+    """Schedule deletion of any message after delay_seconds (default 60s). Resets existing timer if present."""
+    if chat_id and message_id and context and context.job_queue:
+        job_name = f"ephemeral_{chat_id}_{message_id}"
+        existing = context.job_queue.get_jobs_by_name(job_name)
+        for j in existing:
+            j.schedule_removal()
+
+        context.job_queue.run_once(
+            _delete_message_job,
+            when=timedelta(seconds=delay_seconds),
+            data={"chat_id": chat_id, "message_id": message_id},
+            name=job_name,
+        )
+
+
 def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Schedule deletion of user's incoming message after 1 minute (60s)."""
     if update.effective_message and update.effective_chat and not update.callback_query:
         if update.effective_user and not update.effective_user.is_bot:
-            job_name = f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}"
-            if context.job_queue and not context.job_queue.get_jobs_by_name(job_name):
-                context.job_queue.run_once(
-                    _delete_message_job,
-                    when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-                    data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
-                    name=job_name,
-                )
+            schedule_message_deletion(update.effective_chat.id, update.effective_message.message_id, context)
 
 
 async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:
