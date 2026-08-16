@@ -2,8 +2,8 @@
 
 STRINGS = {
     "menu_title": {
-        "en": "🏕 *BachzTab — Main Dashboard*\n\nTap a button below to perform an action:",
-        "fa": "🏕 *BachzTab — داشبورد اصلی*\n\nبرای انجام عملیات، دکمه مورد نظر را لمس کنید:",
+        "en": "🏕 *BachzTab keyboard active!*",
+        "fa": "🏕 *کیبورد BachzTab فعال شد!*",
     },
     "btn_join": {"en": "➕ Join Trip", "fa": "➕ عضویت در سفر"},
     "btn_status": {"en": "🏕 Status", "fa": "🏕 خلاصه سفر"},
