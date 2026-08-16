@@ -43,12 +43,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     is_joined = family is not None
     reply_kbd = get_reply_keyboard(lang, is_joined=is_joined)
 
-    if update.callback_query and update.callback_query.message:
-        try:
-            await update.callback_query.message.delete()
-        except Exception:
-            pass
-
     if not is_joined:
         from bot.handlers.family import WEIGHT_OPTIONS
         buttons = []
@@ -66,8 +60,16 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await reply_ephemeral(update, context, msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
         return
 
+    from bot.handlers._helpers import schedule_message_deletion
     msg_text = t("menu_title", lang)
-    await reply_ephemeral(update, context, msg_text, reply_markup=reply_kbd, parse_mode="Markdown")
+    msg = await context.bot.send_message(chat_id=chat_id, text=msg_text, reply_markup=reply_kbd, parse_mode="Markdown")
+    schedule_message_deletion(chat_id, msg.message_id, context)
+
+    if update.callback_query and update.callback_query.message:
+        try:
+            await update.callback_query.message.delete()
+        except Exception:
+            pass
 
 
 async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

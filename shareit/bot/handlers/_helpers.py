@@ -43,22 +43,20 @@ async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     if not target and update.callback_query:
         target = update.callback_query.message
 
+    msg = None
     if target:
-        msg = await target.reply_text(text, **kwargs)
-    elif update.effective_chat:
+        try:
+            msg = await target.reply_text(text, **kwargs)
+        except Exception:
+            msg = None
+
+    if not msg and update.effective_chat:
         msg = await context.bot.send_message(chat_id=update.effective_chat.id, text=text, **kwargs)
-    else:
+
+    if not msg:
         return None
 
-    if msg:
-        context.job_queue.run_once(
-            _delete_message_job,
-            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-            data={"chat_id": msg.chat_id, "message_id": msg.message_id},
-            name=f"ephemeral_{msg.chat_id}_{msg.message_id}",
-        )
-
-    # Schedule deletion of user's command message after 1 minute as well
+    schedule_message_deletion(msg.chat_id, msg.message_id, context)
     schedule_user_message_deletion(update, context)
 
     return msg
