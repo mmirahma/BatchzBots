@@ -75,9 +75,6 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not update.message or not update.message.text:
         return
 
-    from bot.handlers._helpers import schedule_user_message_deletion
-    schedule_user_message_deletion(update, context)
-
     text = update.message.text.strip()
     lang = await get_lang(update, context)
 
@@ -98,6 +95,32 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     btn_lang_fa = t("btn_lang", "fa")
     btn_join_en = t("btn_join", "en")
     btn_join_fa = t("btn_join", "fa")
+
+    is_button = text in (
+        btn_expense_en, btn_expense_fa,
+        btn_my_share_en, btn_my_share_fa,
+        btn_skip_en, btn_skip_fa,
+        btn_meals_en, btn_meals_fa,
+        btn_status_en, btn_status_fa,
+        btn_settle_en, btn_settle_fa,
+        btn_lang_en, btn_lang_fa,
+        btn_join_en, btn_join_fa,
+    )
+
+    has_pending_input = bool(
+        context.user_data.get("pending_meal_desc")
+        or context.user_data.get("pending_meal_name")
+        or context.user_data.get("pending_expense_desc")
+        or context.user_data.get("pending_expense_category")
+        or context.user_data.get("pending_contribute")
+    )
+
+    if not is_button and not has_pending_input:
+        # Regular chat message between group members — DO NOT DELETE!
+        return
+
+    from bot.handlers._helpers import schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
 
     if text in (btn_expense_en, btn_expense_fa):
         from bot.handlers.expense import prompt_expense_preset
