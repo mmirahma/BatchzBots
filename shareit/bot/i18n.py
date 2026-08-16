@@ -276,22 +276,22 @@ STRINGS = {
         "en": "✅ Meal/Event #{number} '{name}' deleted.",
         "fa": "✅ وعده/رویداد #{number} '{name}' حذف شد.",
     },
-    "btn_delete_meal": {"en": "🗑 Delete Event", "fa": "🗑 حذف رویداد/وعده"},
+    "btn_delete_meal": {"en": "🗑 Delete Meal/Event", "fa": "🗑 حذف وعده/رویداد"},
     "delmeal_select_prompt": {
         "en": "🗑 *Delete Meal/Event*\n\nSelect a meal/event below to delete it:",
-        "fa": "🗑 *حذف رویداد/وعده*\n\nیک رویداد/وعده را برای حذف از لیست زیر انتخاب کنید:",
+        "fa": "🗑 *حذف وعده/رویداد*\n\nیک وعده/رویداد را برای حذف از لیست زیر انتخاب کنید:",
     },
     "delmeal_warning": {
-        "en": "⚠️ *Warning: Event #{number} '{name}' has ${total:.2f} in logged payments!*\n\nDeleting this event will permanently remove all logged payments and contributions associated with it. Are you sure you want to proceed?",
-        "fa": "⚠️ *هشدار: رویداد #{number} '{name}' دارای ${total:.2f} پرداخت ثبت‌شده است!*\n\nحذف این رویداد باعث حذف همیشگی تمام پرداخت‌ها و سهم‌های ثبت‌شده آن می‌شود. آیا مطمئن هستید؟",
+        "en": "⚠️ *Warning: Meal/Event #{number} '{name}' has ${total:.2f} in logged payments!*\n\nDeleting this meal/event will permanently remove all logged payments and contributions associated with it. Are you sure you want to proceed?",
+        "fa": "⚠️ *هشدار: وعده/رویداد #{number} '{name}' دارای ${total:.2f} پرداخت ثبت‌شده است!*\n\nحذف این وعده/رویداد باعث حذف همیشگی تمام پرداخت‌ها و سهم‌های ثبت‌شده آن می‌شود. آیا مطمئن هستید؟",
     },
     "btn_confirm_delmeal": {
-        "en": "⚠️ Yes, Delete Event & All Payments",
-        "fa": "⚠️ بله، حذف رویداد و تمام پرداخت‌ها",
+        "en": "⚠️ Yes, Delete Meal/Event & All Payments",
+        "fa": "⚠️ بله، حذف وعده/رویداد و تمام پرداخت‌ها",
     },
     "meal_deleted_with_payments": {
-        "en": "✅ Event #{number} '{name}' and all associated payments (${total:.2f}) deleted.",
-        "fa": "✅ رویداد #{number} '{name}' و تمام پرداخت‌های آن (${total:.2f}) حذف شدند.",
+        "en": "✅ Meal/Event #{number} '{name}' and all associated payments (${total:.2f}) deleted.",
+        "fa": "✅ وعده/رویداد #{number} '{name}' و تمام پرداخت‌های آن (${total:.2f}) حذف شدند.",
     },
     "meal_delete_denied": {
         "en": "⚠️ Only the family who logged this meal/event can delete it.",
