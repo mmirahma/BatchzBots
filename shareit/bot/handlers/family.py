@@ -221,7 +221,19 @@ async def show_join_summary(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     menu_button = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_open_menu", lang), callback_data="menu_open")]])
 
+    from datetime import timedelta
+    from bot.handlers._helpers import _delete_message_job, EPHEMERAL_DELETE_SECONDS
+
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=menu_button, parse_mode="Markdown")
+        if update.effective_chat and update.callback_query.message:
+            chat_id = update.effective_chat.id
+            msg_id = update.callback_query.message.message_id
+            context.job_queue.run_once(
+                _delete_message_job,
+                when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+                data={"chat_id": chat_id, "message_id": msg_id},
+                name=f"ephemeral_{chat_id}_{msg_id}",
+            )
     else:
         await reply_ephemeral(update, context, text, reply_markup=menu_button, parse_mode="Markdown")

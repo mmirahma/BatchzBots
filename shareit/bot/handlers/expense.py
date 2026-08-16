@@ -210,6 +210,17 @@ async def targeted_expense_family_callback_handler(update: Update, context: Cont
             t("targeted_logged_summary", lang, desc=desc, amount=amount, payer=payer_family["name"], breakdown=breakdown_str),
             parse_mode="Markdown",
         )
+        if update.effective_chat and query.message:
+            from datetime import timedelta
+            from bot.handlers._helpers import _delete_message_job, EPHEMERAL_DELETE_SECONDS
+            chat_id = update.effective_chat.id
+            msg_id = query.message.message_id
+            context.job_queue.run_once(
+                _delete_message_job,
+                when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+                data={"chat_id": chat_id, "message_id": msg_id},
+                name=f"ephemeral_{chat_id}_{msg_id}",
+            )
         return
 
     if data.startswith("ptgtfam_"):
@@ -357,4 +368,15 @@ async def expense_amount_callback_handler(update: Update, context: ContextTypes.
     await query.edit_message_text(
         t("expense_logged", lang, description=description, amount=amount, family=family["name"])
     )
+    if update.effective_chat and query.message:
+        from datetime import timedelta
+        from bot.handlers._helpers import _delete_message_job, EPHEMERAL_DELETE_SECONDS
+        chat_id = update.effective_chat.id
+        msg_id = query.message.message_id
+        context.job_queue.run_once(
+            _delete_message_job,
+            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+            data={"chat_id": chat_id, "message_id": msg_id},
+            name=f"ephemeral_{chat_id}_{msg_id}",
+        )
 
