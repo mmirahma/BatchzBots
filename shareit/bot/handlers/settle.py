@@ -109,7 +109,6 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     buttons = [
         [InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel")],
-        [InlineKeyboardButton(t("btn_open_menu", lang), callback_data="menu_open")],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
     from bot.handlers._helpers import schedule_user_message_deletion
