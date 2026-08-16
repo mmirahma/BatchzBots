@@ -44,11 +44,30 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     reply_kbd = get_reply_keyboard(lang, is_joined=is_joined)
 
     if not is_joined:
+        from bot.handlers.family import WEIGHT_OPTIONS
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        inline_kbd = InlineKeyboardMarkup(buttons)
         msg_text = f"🏕 *{trip['name']}*\n\n⚠️ {t('join_first', lang)}\n{t('join_select_weight', lang)}"
-    else:
-        msg_text = t("menu_title", lang)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
+        else:
+            await reply_ephemeral(update, context, msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
+        return
 
-    await reply_ephemeral(update, context, msg_text, reply_markup=reply_kbd, parse_mode="Markdown")
+    msg_text = t("menu_title", lang)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(msg_text, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, msg_text, reply_markup=reply_kbd, parse_mode="Markdown")
 
 
 async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -40,7 +40,27 @@ async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     await create_trip(db_path, trip_name, chat_id, expected_families)
-    await reply_ephemeral(update, context, t("trip_created", lang, name=trip_name))
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    from bot.handlers.family import WEIGHT_OPTIONS
+    from bot.handlers.menu import get_reply_keyboard
+
+    reply_kbd = get_reply_keyboard(lang, is_joined=False)
+
+    buttons = []
+    row = []
+    for w in WEIGHT_OPTIONS:
+        label = str(w) if w != int(w) else str(int(w))
+        row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
+        if len(row) == 5:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    inline_kbd = InlineKeyboardMarkup(buttons)
+
+    msg_text = f"🏕 *{trip_name}*\n\n✅ {t('trip_created', lang, name=trip_name)}\n\n{t('join_select_weight', lang)}"
+    await reply_ephemeral(update, context, msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
     if expected_families:
         from datetime import timedelta
         from bot.reminder import _delete_reminder_message
