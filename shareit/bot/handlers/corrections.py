@@ -151,3 +151,87 @@ async def editmeal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
             await db.commit()
         await reply_ephemeral(update, context, t("meal_edited", lang, number=meal_number, amount=amount))
+
+
+async def delete_meal_prompt_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle tap on delete event button (delmeal_prompt_{meal_id})."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    try:
+        meal_id = int(data.replace("delmeal_prompt_", ""))
+    except ValueError:
+        return
+
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    from bot.db import get_active_trip, get_family, get_meals, get_meal_contributions, delete_meal
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        return
+    family = await get_family(db_path, trip["id"], user_id)
+    lang = family.get("language", "en") if family else "en"
+
+    meals = await get_meals(db_path, trip["id"])
+    meal = next((m for m in meals if m["id"] == meal_id), None)
+    if not meal:
+        return
+
+    contributions = await get_meal_contributions(db_path, meal_id)
+    total_paid = sum(c["amount"] for c in contributions)
+
+    if total_paid <= 0:
+        # No payments logged — delete event immediately
+        await delete_meal(db_path, meal_id)
+        msg_text = t("meal_deleted", lang, number=meal["meal_number"], name=meal["name"])
+        await query.edit_message_text(msg_text, parse_mode="Markdown")
+        return
+
+    # Warning: Event has payments logged — ask for explicit confirmation
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    buttons = [
+        [InlineKeyboardButton(t("btn_confirm_delmeal", lang), callback_data=f"delmeal_confirm_{meal_id}")],
+        [InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_skip")],
+    ]
+
+    warn_msg = t("delmeal_warning", lang, number=meal["meal_number"], name=meal["name"], total=total_paid)
+    await query.edit_message_text(warn_msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+
+
+async def delete_meal_confirm_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle explicit confirmed deletion of an event and all associated payments (delmeal_confirm_{meal_id})."""
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data
+    try:
+        meal_id = int(data.replace("delmeal_confirm_", ""))
+    except ValueError:
+        return
+
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    from bot.db import get_active_trip, get_family, get_meals, get_meal_contributions, delete_meal
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        return
+    family = await get_family(db_path, trip["id"], user_id)
+    lang = family.get("language", "en") if family else "en"
+
+    meals = await get_meals(db_path, trip["id"])
+    meal = next((m for m in meals if m["id"] == meal_id), None)
+    if not meal:
+        return
+
+    contributions = await get_meal_contributions(db_path, meal_id)
+    total_paid = sum(c["amount"] for c in contributions)
+
+    await delete_meal(db_path, meal_id)
+
+    msg_text = t("meal_deleted_with_payments", lang, number=meal["meal_number"], name=meal["name"], total=total_paid)
+    await query.edit_message_text(msg_text, parse_mode="Markdown")

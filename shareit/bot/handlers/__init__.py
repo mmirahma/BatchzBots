@@ -15,7 +15,10 @@ from bot.handlers.expense import (
     expense_menu_callback_handler, targeted_expense_family_callback_handler, targeted_amount_callback_handler,
 )
 from bot.handlers.settle import settle_handler
-from bot.handlers.corrections import undo_handler, deletemeal_handler, editmeal_handler
+from bot.handlers.corrections import (
+    undo_handler, deletemeal_handler, editmeal_handler,
+    delete_meal_prompt_callback_handler, delete_meal_confirm_callback_handler,
+)
 from bot.handlers.utility import lang_handler, help_handler, lang_callback_handler, export_handler
 from bot.handlers.info import meals_handler, history_handler, my_share_handler
 
@@ -69,6 +72,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
+    app.add_handler(CallbackQueryHandler(delete_meal_prompt_callback_handler, pattern=r"^delmeal_prompt_"))
+    app.add_handler(CallbackQueryHandler(delete_meal_confirm_callback_handler, pattern=r"^delmeal_confirm_"))
     app.add_handler(CallbackQueryHandler(resumetrip_handler, pattern=r"^resumetrip_"))
     app.add_handler(CallbackQueryHandler(export_handler, pattern=r"^export_excel$"))
 

@@ -239,3 +239,23 @@ async def test_resume_last_trip_db(db_path):
     active3 = await get_active_trip(db_path, 300)
     assert active3["id"] == trip_id
 
+
+@pytest.mark.asyncio
+async def test_delete_meal_cascade_contributions(db_path):
+    from bot.db import delete_meal, get_meal_contributions, get_meals
+    trip_id = await create_trip(db_path, "Delete Meal Test", chat_id=400)
+    f1 = await add_family(db_path, trip_id, "Tester", 1.0, telegram_user_id=40)
+    meal_id = await add_meal(db_path, trip_id, "Dinner to Delete", f1, 50.0)
+
+    conts_before = await get_meal_contributions(db_path, meal_id)
+    assert len(conts_before) == 1
+    assert conts_before[0]["amount"] == 50.0
+
+    # Delete meal
+    await delete_meal(db_path, meal_id)
+
+    conts_after = await get_meal_contributions(db_path, meal_id)
+    assert len(conts_after) == 0
+    meals_after = await get_meals(db_path, trip_id)
+    assert len(meals_after) == 0
+
