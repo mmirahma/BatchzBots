@@ -215,55 +215,70 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     total_owed = 0.0
     total_paid = 0.0
 
+    table_rows = []
+
     # Process meals
-    if meals:
-        text += t("my_share_meals_header", lang)
-        for m in meals:
-            conts = await get_meal_contributions(db_path, m["id"])
-            absences = await get_meal_absences(db_path, m["id"])
-            group_members = await get_meal_grouping_members(db_path, m["id"])
+    for m in meals:
+        conts = await get_meal_contributions(db_path, m["id"])
+        absences = await get_meal_absences(db_path, m["id"])
+        group_members = await get_meal_grouping_members(db_path, m["id"])
 
-            m_total = sum(c["amount"] for c in conts)
-            for c in conts:
-                if c["family_id"] == family_id:
-                    total_paid += c["amount"]
+        m_total = sum(c["amount"] for c in conts)
+        for c in conts:
+            if c["family_id"] == family_id:
+                total_paid += c["amount"]
 
-            if family_id in absences:
-                text += "\n" + t("my_share_skipped_item", lang, name=f"#{m['meal_number']} {esc(m['name'])}")
+        # Omit skipped items completely
+        if family_id not in absences:
+            if group_members:
+                attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights]
+                total_w = sum(gm["weight"] for gm in attending)
             else:
-                if group_members:
-                    attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights]
-                    total_w = sum(gm["weight"] for gm in attending)
-                else:
-                    attending_fids = [fid for fid in family_weights if fid not in absences]
-                    total_w = sum(family_weights[fid] for fid in attending_fids)
+                attending_fids = [fid for fid in family_weights if fid not in absences]
+                total_w = sum(family_weights[fid] for fid in attending_fids)
 
-                my_share = (m_total * (family_weight / total_w)) if total_w > 0 else 0.0
-                total_owed += my_share
-                text += "\n" + t("my_share_item", lang, name=f"#{m['meal_number']} {esc(m['name'])}", total=m_total, share=my_share)
+            my_share = (m_total * (family_weight / total_w)) if total_w > 0 else 0.0
+            pct = (my_share / m_total * 100.0) if m_total > 0 else (family_weight / total_w * 100.0 if total_w > 0 else 0.0)
+            total_owed += my_share
+
+            item_name = f"#{m['meal_number']} {m['name']}"
+            table_rows.append((item_name, m_total, pct, my_share))
 
     # Process general shared expenses
-    if expenses:
-        text += t("my_share_expenses_header", lang)
-        total_family_w = sum(family_weights.values())
-        for e in expenses:
-            amt = e["amount"]
-            if e["family_id"] == family_id:
-                total_paid += amt
+    total_family_w = sum(family_weights.values())
+    for e in expenses:
+        amt = e["amount"]
+        if e["family_id"] == family_id:
+            total_paid += amt
 
-            my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
-            total_owed += my_share
-            text += "\n" + t("my_share_item", lang, name=esc(e["description"]), total=amt, share=my_share)
+        my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
+        pct = (my_share / amt * 100.0) if amt > 0 else (family_weight / total_family_w * 100.0 if total_family_w > 0 else 0.0)
+        total_owed += my_share
 
-    # Calculate net balance
-    net_bal = round(total_paid - total_owed, 2)
-    if abs(net_bal) < 0.01:
-        status_str = "⚪ $0.00 (Settled)"
-    elif net_bal > 0:
-        status_str = f"🟢 +${net_bal:.2f} (Owed to you)"
+        table_rows.append((e["description"], amt, pct, my_share))
+
+    if table_rows:
+        text += "\n\n```text\n"
+        text += f"{'Item / Event':<18} {'Total':>8} {'Pct':>6} {'Your Share':>9}\n"
+        text += "─" * 43 + "\n"
+        for item, total, pct, share in table_rows:
+            item_str = item[:17]
+            text += f"{item_str:<18} {f'${total:.2f}':>8} {f'{pct:.1f}%':>6} {f'${share:.2f}':>9}\n"
+        text += "─" * 43 + "\n"
+
+        net_bal = round(total_paid - total_owed, 2)
+        if abs(net_bal) < 0.01:
+            bal_str = "⚪ $0.00 (Settled)"
+        elif net_bal > 0:
+            bal_str = f"🟢 +${net_bal:.2f} (Owed)"
+        else:
+            bal_str = f"🔴 -${abs(net_bal):.2f} (You owe)"
+
+        text += f"{'TOTAL OWED:':<33} {f'${total_owed:.2f}':>9}\n"
+        text += f"{'TOTAL PAID:':<33} {f'${total_paid:.2f}':>9}\n"
+        text += f"{'NET BALANCE:':<18} {bal_str}\n"
+        text += "```"
     else:
-        status_str = f"🔴 -${abs(net_bal):.2f} (You owe)"
-
-    text += t("my_share_summary", lang, owed=total_owed, paid=total_paid, status=status_str)
+        text += "\n\n_No active meals or expenses for your family._"
 
     await reply_ephemeral(update, context, text, parse_mode="Markdown")
