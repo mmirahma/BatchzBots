@@ -17,7 +17,7 @@ from bot.handlers.expense import (
 from bot.handlers.settle import settle_handler
 from bot.handlers.corrections import undo_handler, deletemeal_handler, editmeal_handler
 from bot.handlers.utility import lang_handler, help_handler, lang_callback_handler, export_handler
-from bot.handlers.info import meals_handler, history_handler
+from bot.handlers.info import meals_handler, history_handler, my_share_handler
 
 
 def register_handlers(app: Application) -> None:
@@ -34,6 +34,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("expense", expense_handler))
     app.add_handler(CommandHandler("settle", settle_handler))
     app.add_handler(CommandHandler("meals", meals_handler))
+    app.add_handler(CommandHandler("myshare", my_share_handler))
     app.add_handler(CommandHandler("history", history_handler))
     app.add_handler(CommandHandler("undo", undo_handler))
     app.add_handler(CommandHandler("deletemeal", deletemeal_handler))

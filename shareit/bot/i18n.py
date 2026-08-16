@@ -349,7 +349,31 @@ STRINGS = {
     },
     "status_no_data": {
         "en": "\n_No meals or expenses logged yet._",
-        "fa": "\n_هنوز وعده یا هزینه\u200cای ثبت نشده._",
+        "fa": "\n_هنوز وعده یا هزینه‌ای ثبت نشده._",
+    },
+    "my_share_header": {
+        "en": "📊 *Personal Cost Share Breakdown — {family_name}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👥 Your Share Weight: *{weight}*",
+        "fa": "📊 *ریزهزینه‌ها و سهم اختصاصی — {family_name}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👥 وزن سهم خانواده شما: *{weight}*",
+    },
+    "my_share_meals_header": {
+        "en": "\n\n🍽 *Meals/Events Shares:*",
+        "fa": "\n\n🍽 *سهم از وعده‌ها/رویدادها:*",
+    },
+    "my_share_expenses_header": {
+        "en": "\n\n💸 *General Expense Shares:*",
+        "fa": "\n\n💸 *سهم از هزینه‌های عمومی:*",
+    },
+    "my_share_item": {
+        "en": "  • {name} (${total:.2f} total) ➔ *Your Share: ${share:.2f}*",
+        "fa": "  • {name} (${total:.2f} کل) ➔ *سهم شما: ${share:.2f}*",
+    },
+    "my_share_skipped_item": {
+        "en": "  • {name} — *Skipped ($0.00)*",
+        "fa": "  • {name} — *غایب ($0.00)*",
+    },
+    "my_share_summary": {
+        "en": "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📈 *Your Family Financial Summary:*\n  • *Total Cost Share Owed:* ${owed:.2f}\n  • *Total Paid by You:* ${paid:.2f}\n  • *Your Net Balance:* {status}",
+        "fa": "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📈 *خلاصه تراز مالی خانواده شما:*\n  • *مجموع سهم پرداختی عهده شما:* ${owed:.2f}\n  • *مجموع پرداختی‌های شما:* ${paid:.2f}\n  • *تراز نهایی شما:* {status}",
     },
     "group_only": {
         "en": "⚠️ This command works in group chats only.",

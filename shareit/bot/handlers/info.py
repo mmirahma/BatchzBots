@@ -178,3 +178,92 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     text += t("history_hint", lang)
     await reply_ephemeral(update, context, text)
+
+
+async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /myshare or '📊 My Share' button — list user's personal itemized cost shares."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    from bot.db import get_family
+    family = await get_family(db_path, trip["id"], user_id)
+    if not family:
+        await reply_ephemeral(update, context, t("join_first", lang))
+        return
+
+    families = await get_families(db_path, trip["id"])
+    meals = await get_meals(db_path, trip["id"])
+    expenses = await get_shared_expenses(db_path, trip["id"])
+
+    family_id = family["id"]
+    family_weight = family["weight"]
+    family_weights = {f["id"]: f["weight"] for f in families}
+
+    esc = lambda s: escape_markdown(str(s), version=1)
+
+    text = t("my_share_header", lang, family_name=esc(family["name"]), weight=family_weight)
+
+    total_owed = 0.0
+    total_paid = 0.0
+
+    # Process meals
+    if meals:
+        text += t("my_share_meals_header", lang)
+        for m in meals:
+            conts = await get_meal_contributions(db_path, m["id"])
+            absences = await get_meal_absences(db_path, m["id"])
+            group_members = await get_meal_grouping_members(db_path, m["id"])
+
+            m_total = sum(c["amount"] for c in conts)
+            for c in conts:
+                if c["family_id"] == family_id:
+                    total_paid += c["amount"]
+
+            if family_id in absences:
+                text += "\n" + t("my_share_skipped_item", lang, name=f"#{m['meal_number']} {esc(m['name'])}")
+            else:
+                if group_members:
+                    attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights]
+                    total_w = sum(gm["weight"] for gm in attending)
+                else:
+                    attending_fids = [fid for fid in family_weights if fid not in absences]
+                    total_w = sum(family_weights[fid] for fid in attending_fids)
+
+                my_share = (m_total * (family_weight / total_w)) if total_w > 0 else 0.0
+                total_owed += my_share
+                text += "\n" + t("my_share_item", lang, name=f"#{m['meal_number']} {esc(m['name'])}", total=m_total, share=my_share)
+
+    # Process general shared expenses
+    if expenses:
+        text += t("my_share_expenses_header", lang)
+        total_family_w = sum(family_weights.values())
+        for e in expenses:
+            amt = e["amount"]
+            if e["family_id"] == family_id:
+                total_paid += amt
+
+            my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
+            total_owed += my_share
+            text += "\n" + t("my_share_item", lang, name=esc(e["description"]), total=amt, share=my_share)
+
+    # Calculate net balance
+    net_bal = round(total_paid - total_owed, 2)
+    if abs(net_bal) < 0.01:
+        status_str = "⚪ $0.00 (Settled)"
+    elif net_bal > 0:
+        status_str = f"🟢 +${net_bal:.2f} (Owed to you)"
+    else:
+        status_str = f"🔴 -${abs(net_bal):.2f} (You owe)"
+
+    text += t("my_share_summary", lang, owed=total_owed, paid=total_paid, status=status_str)
+
+    await reply_ephemeral(update, context, text, parse_mode="Markdown")

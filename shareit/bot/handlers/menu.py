@@ -84,7 +84,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from bot.handlers.expense import prompt_expense_preset
         await prompt_expense_preset(update, context)
     elif text in (btn_my_share_en, btn_my_share_fa):
-        await reply_ephemeral(update, context, t("not_implemented", lang))
+        from bot.handlers.info import my_share_handler
+        await my_share_handler(update, context)
     elif text in (btn_skip_en, btn_skip_fa):
         from bot.handlers.meal import skip_handler
         await skip_handler(update, context)
