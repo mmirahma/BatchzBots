@@ -10,12 +10,39 @@ from bot.i18n import t
 from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
 
 
+import logging
+logger = logging.getLogger(__name__)
+
+
+def cancel_pending_leave_job(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cancel any scheduled 48h group departure job when a new trip is instantiated."""
+    if chat_id and context and context.job_queue:
+        job_name = f"leave_chat_{chat_id}"
+        existing = context.job_queue.get_jobs_by_name(job_name)
+        for j in existing:
+            j.schedule_removal()
+
+
+async def _leave_chat_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Leave group chat after 48 hours if no new trip was created."""
+    data = context.job.data
+    chat_id = data.get("chat_id")
+    if chat_id:
+        try:
+            await context.bot.leave_chat(chat_id=chat_id)
+            logger.info(f"Bot automatically left chat {chat_id} after 48h deadline.")
+        except Exception as e:
+            logger.warning(f"Could not leave chat {chat_id} after 48h deadline: {e}")
+
+
 async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /newtrip <name> [family_count] command."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
     chat_id = update.effective_chat.id
+
+    cancel_pending_leave_job(chat_id, context)
 
     if not context.args:
         await reply_ephemeral(update, context, t("usage_newtrip", lang))
@@ -181,14 +208,20 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # 4. Deactivate trip in database
     await end_trip(db_path, trip["id"])
 
-    # 5. Send trip ended farewell message
-    await context.bot.send_message(chat_id=chat_id, text=t("trip_ended", lang, name=trip["name"]), parse_mode="Markdown")
+    # 5. Send trip ended farewell message informing users about 48h departure
+    await context.bot.send_message(chat_id=chat_id, text=t("trip_ended_leave_48h", lang, name=trip["name"]), parse_mode="Markdown")
 
-    # 6. Leave the Telegram channel/group
-    try:
-        await context.bot.leave_chat(chat_id=chat_id)
-    except Exception as e:
-        logger.warning(f"Could not leave chat {chat_id}: {e}")
+    # 6. Schedule 48-hour delayed group departure (cancelled if /newtrip is created)
+    if context and context.job_queue:
+        from datetime import timedelta
+        job_name = f"leave_chat_{chat_id}"
+        cancel_pending_leave_job(chat_id, context)
+        context.job_queue.run_once(
+            _leave_chat_job,
+            when=timedelta(hours=48),
+            data={"chat_id": chat_id},
+            name=job_name,
+        )
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
