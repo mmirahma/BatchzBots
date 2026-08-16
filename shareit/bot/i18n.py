@@ -44,7 +44,7 @@ STRINGS = {
         "en": "\n\nℹ️ *No meals/events recorded yet in this trip.*",
         "fa": "\n\nℹ️ *هنوز وعده/رویدادی برای این سفر ثبت نشده است.*",
     },
-    "btn_open_menu": {"en": "🏕 Open Main Menu", "fa": "🏕 باز کردن منوی اصلی"},
+    "btn_open_menu": {"en": "⌨️ Activate Keyboard", "fa": "⌨️ فعال‌سازی کیبورد"},
     "expense_menu_title": {
         "en": "💸 *Log Expense*\n\nChoose an existing meal/event to add payment, or log a new expense:",
         "fa": "💸 *ثبت هزینه*\n\nیک وعده/رویداد موجود را برای اضافه پرداخت انتخاب کنید یا گزینه جدید را بزنید:",
