@@ -45,6 +45,7 @@ STRINGS = {
     },
     "btn_settle": {"en": "💰 Settle", "fa": "💰 تسویه نهایی"},
     "btn_lang": {"en": "🌐 Language", "fa": "🌐 تغییر زبان"},
+    "btn_help": {"en": "❓ Help", "fa": "❓ راهنما"},
     "btn_my_share": {"en": "📊 My Share", "fa": "📊 سهم من"},
     "btn_export_excel": {"en": "📊 Export Excel", "fa": "📊 خروجی اکسل"},
     "export_caption": {

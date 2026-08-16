@@ -17,7 +17,7 @@ def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboar
             [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_edit_my_expenses", lang))],
             [KeyboardButton(t("btn_my_share", lang)), KeyboardButton(t("btn_meals", lang))],
             [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
-            [KeyboardButton(t("btn_lang", lang))],
+            [KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))],
         ]
     return ReplyKeyboardMarkup(
         keyboard,
@@ -99,6 +99,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     btn_settle_fa = t("btn_settle", "fa")
     btn_lang_en = t("btn_lang", "en")
     btn_lang_fa = t("btn_lang", "fa")
+    btn_help_en = t("btn_help", "en")
+    btn_help_fa = t("btn_help", "fa")
     btn_join_en = t("btn_join", "en")
     btn_join_fa = t("btn_join", "fa")
 
@@ -114,6 +116,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         btn_status_en, btn_status_fa,
         btn_settle_en, btn_settle_fa,
         btn_lang_en, btn_lang_fa,
+        btn_help_en, btn_help_fa,
         btn_join_en, btn_join_fa,
     )
 
@@ -161,6 +164,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif text in (btn_lang_en, btn_lang_fa):
         from bot.handlers.utility import prompt_lang_preset
         await prompt_lang_preset(update, context)
+    elif text in (btn_help_en, btn_help_fa):
+        from bot.handlers.utility import help_handler
+        await help_handler(update, context)
     elif text in (btn_join_en, btn_join_fa):
         from bot.handlers.family import join_handler
         await join_handler(update, context)

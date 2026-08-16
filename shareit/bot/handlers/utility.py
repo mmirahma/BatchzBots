@@ -88,9 +88,25 @@ async def lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /help command."""
+    """Handle /help command or ❓ Help button — display guide and stay for 1 hour (3600s)."""
     lang = await get_lang(update, context)
-    await reply_ephemeral(update, context, t("help", lang), parse_mode="Markdown")
+    chat_id = update.effective_chat.id
+    target = update.effective_message
+
+    msg = None
+    if target:
+        try:
+            msg = await target.reply_text(t("help", lang), parse_mode="Markdown")
+        except Exception:
+            msg = None
+
+    if not msg and update.effective_chat:
+        msg = await context.bot.send_message(chat_id=chat_id, text=t("help", lang), parse_mode="Markdown")
+
+    if msg:
+        from bot.handlers._helpers import schedule_message_deletion, schedule_user_message_deletion
+        schedule_message_deletion(msg.chat_id, msg.message_id, context, delay_seconds=3600)
+        schedule_user_message_deletion(update, context)
 
 
 async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
