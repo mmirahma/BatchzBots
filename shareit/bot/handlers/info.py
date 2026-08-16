@@ -60,7 +60,11 @@ async def delete_meal_menu_handler(update: Update, context: ContextTypes.DEFAULT
 
     meals = await get_meals(db_path, trip["id"])
     if not meals:
-        await reply_ephemeral(update, context, t("no_meals_yet", lang))
+        back_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_meals")]])
+        if update.callback_query:
+            await update.callback_query.edit_message_text(t("no_meals_yet", lang), reply_markup=back_btn)
+        else:
+            await reply_ephemeral(update, context, t("no_meals_yet", lang), reply_markup=back_btn)
         return
 
     buttons = [
@@ -100,6 +104,7 @@ async def meals_status_report_handler(update: Update, context: ContextTypes.DEFA
         ],
         [
             InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
+            InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_meals"),
         ],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)

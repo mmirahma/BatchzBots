@@ -140,6 +140,17 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     from bot.handlers._helpers import schedule_user_message_deletion
     schedule_user_message_deletion(update, context)
 
+    if is_button:
+        # Clear stale pending inputs when user taps a main menu button
+        for key in (
+            "pending_meal_desc", "pending_meal_name", "pending_meal_amount_prompt",
+            "pending_expense_prompt", "pending_expense_desc", "pending_expense_amount_prompt",
+            "pending_targeted_expense_desc", "pending_targeted_expense_amt_prompt",
+            "pending_contribute", "pending_edit_expense", "targeted_expense_desc",
+            "targeted_expense_weights"
+        ):
+            context.user_data.pop(key, None)
+
     if text in (btn_expense_en, btn_expense_fa):
         from bot.handlers.expense import prompt_expense_preset
         await prompt_expense_preset(update, context)
