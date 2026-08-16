@@ -75,5 +75,12 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         text += t("settle_no_transfers", lang)
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    excel_button = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel")]])
-    await reply_ephemeral(update, context, text, reply_markup=excel_button)
+    buttons = [
+        [InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel")],
+        [InlineKeyboardButton(t("btn_open_menu", lang), callback_data="menu_open")],
+    ]
+    reply_markup = InlineKeyboardMarkup(buttons)
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
