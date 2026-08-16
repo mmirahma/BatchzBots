@@ -70,7 +70,7 @@ async def _delete_message_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await context.bot.delete_message(chat_id=data["chat_id"], message_id=data["message_id"])
     except Exception as e:
-        logger.debug(f"Could not delete ephemeral message: {e}")
+        logger.warning(f"Could not delete ephemeral message (chat_id={data['chat_id']}, message_id={data['message_id']}): {e}")
 
 
 async def get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
