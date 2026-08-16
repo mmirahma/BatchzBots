@@ -85,8 +85,9 @@ async def init_db(db_path: str) -> None:
 
 
 async def create_trip(db_path: str, name: str, chat_id: int, expected_families: int | None = None) -> int:
-    """Create a new trip and return its ID."""
+    """Create a new trip and return its ID, deactivating any prior active trips for this chat."""
     async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET active = 0 WHERE chat_id = ?", (chat_id,))
         cursor = await db.execute(
             "INSERT INTO trips (name, chat_id, expected_families) VALUES (?, ?, ?)",
             (name, chat_id, expected_families),
@@ -100,7 +101,7 @@ async def get_active_trip(db_path: str, chat_id: int) -> dict | None:
     async with aiosqlite.connect(db_path) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT * FROM trips WHERE chat_id = ? AND active = 1", (chat_id,)
+            "SELECT * FROM trips WHERE chat_id = ? AND active = 1 ORDER BY id DESC LIMIT 1", (chat_id,)
         ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
