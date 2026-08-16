@@ -9,6 +9,8 @@ from bot.db import (
 from bot.i18n import t
 from bot.handlers._helpers import require_group, require_family, reply_ephemeral, get_lang
 
+AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
+
 
 def _format_grouping_summary(members: list[dict]) -> tuple[str, float]:
     lines = []
@@ -257,7 +259,6 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
         context.user_data["pending_targeted_expense_amt_prompt"] = {"desc": desc, "chat_id": chat_id, "timestamp": now}
 
         lang = await get_lang(update, context)
-        from bot.handlers.expense import AMOUNT_PRESETS
         buttons = []
         row = []
         for amt in AMOUNT_PRESETS:
