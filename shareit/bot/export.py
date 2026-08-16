@@ -14,6 +14,7 @@ def create_excel_report(
     meal_contributions: dict[int, list[dict]],
     meal_absences: dict[int, list[int]],
     meal_groupings: dict[int, list[dict]] | None = None,
+    expense_groupings: dict[int, list[dict]] | None = None,
     group_title: str | None = None,
 ) -> io.BytesIO:
     """
@@ -126,7 +127,6 @@ def create_excel_report(
         current_row += 1
 
     # Process general shared expenses
-    total_family_w = sum(family_weights.values())
     for e in expenses:
         amt = e["amount"]
         payer_fid = e["family_id"]
@@ -135,10 +135,21 @@ def create_excel_report(
 
         payer_name = e.get("family_name") or family_names.get(payer_fid, "Family")
 
+        e_id = e.get("id")
+        group_m = (expense_groupings or {}).get(e_id, []) if e_id else []
+
         shares = {fid: 0.0 for fid in family_ids}
-        if total_family_w > 0:
-            for fid in family_ids:
-                shares[fid] = amt * (family_weights[fid] / total_family_w)
+        if group_m:
+            attending = [gm for gm in group_m if gm.get("is_active", 1) != 0 and gm["family_id"] in family_ids]
+            total_w = sum(gm["weight"] for gm in attending)
+            if total_w > 0:
+                for gm in attending:
+                    shares[gm["family_id"]] = amt * (gm["weight"] / total_w)
+        else:
+            total_family_w = sum(family_weights.values())
+            if total_family_w > 0:
+                for fid in family_ids:
+                    shares[fid] = amt * (family_weights[fid] / total_family_w)
 
         row_data = [
             e["description"],

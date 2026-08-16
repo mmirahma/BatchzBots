@@ -109,7 +109,7 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     from bot.db import (
         get_families, get_meals, get_shared_expenses,
-        get_meal_contributions, get_meal_absences, get_meal_grouping_members,
+        get_meal_contributions, get_meal_absences, get_meal_grouping_members, get_grouping_members,
     )
     from bot.export import create_excel_report
 
@@ -125,6 +125,11 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
         meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
 
+    expense_groups = {}
+    for exp in expenses:
+        if exp.get("grouping_id"):
+            expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
+
     group_title = update.effective_chat.title if update.effective_chat and update.effective_chat.title else trip["name"]
 
     excel_file = create_excel_report(
@@ -135,6 +140,7 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         meal_contributions=meal_conts,
         meal_absences=meal_abs,
         meal_groupings=meal_groups,
+        expense_groupings=expense_groups,
         group_title=group_title,
     )
 

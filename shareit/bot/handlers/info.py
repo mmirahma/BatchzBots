@@ -143,8 +143,19 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             abs_list = await get_meal_absences(db_path, meal["id"])
             meal_absences[meal["id"]] = abs_list
 
-        expense_data = [{"family_id": e["family_id"], "description": e["description"], "amount": e["amount"]} for e in expenses]
-        result = calculate_settlement(families, meals, meal_contributions, meal_absences, expense_data)
+        expense_groups = {}
+        for exp in expenses:
+            if exp.get("grouping_id"):
+                expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
+
+        result = calculate_settlement(
+            families=families,
+            meals=meals,
+            meal_contributions=meal_contributions,
+            meal_absences=meal_absences,
+            shared_expenses=expenses,
+            expense_groupings=expense_groups,
+        )
         family_names = {f["id"]: f["name"] for f in families}
 
         text = t("settle_header", lang,
@@ -245,17 +256,30 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             table_rows.append((item_name, m_total, pct, my_share))
 
     # Process general shared expenses
-    total_family_w = sum(family_weights.values())
+    from bot.db import get_grouping_members
     for e in expenses:
         amt = e["amount"]
         if e["family_id"] == family_id:
             total_paid += amt
 
-        my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
-        pct = (my_share / amt * 100.0) if amt > 0 else (family_weight / total_family_w * 100.0 if total_family_w > 0 else 0.0)
-        total_owed += my_share
+        group_members = await get_grouping_members(db_path, e["grouping_id"]) if e.get("grouping_id") else None
 
-        table_rows.append((e["description"], amt, pct, my_share))
+        if group_members:
+            attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] in family_weights]
+            my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
+            total_w = sum(gm["weight"] for gm in attending)
+            if my_gm and total_w > 0:
+                my_weight = my_gm["weight"]
+                my_share = amt * (my_weight / total_w)
+                pct = (my_share / amt * 100.0) if amt > 0 else (my_weight / total_w * 100.0)
+                total_owed += my_share
+                table_rows.append((e["description"], amt, pct, my_share))
+        else:
+            total_family_w = sum(family_weights.values())
+            my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
+            pct = (my_share / amt * 100.0) if amt > 0 else (family_weight / total_family_w * 100.0 if total_family_w > 0 else 0.0)
+            total_owed += my_share
+            table_rows.append((e["description"], amt, pct, my_share))
 
     if table_rows:
         text += "\n\n```\n"
