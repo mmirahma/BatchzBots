@@ -326,6 +326,10 @@ STRINGS = {
         "en": "  #{number} {name} — ${total:.2f}",
         "fa": "  #{number} {name} — ${total:.2f}",
     },
+    "status_meal_paid_by": {
+        "en": "\n     💳 Paid by: {paid_list}",
+        "fa": "\n     💳 پرداختی‌ها: {paid_list}",
+    },
     "status_expenses": {
         "en": "\n💸 *Shared Expenses ({count}):*",
         "fa": "\n💸 *هزینه\u200cهای مشترک ({count}):*",
@@ -333,6 +337,10 @@ STRINGS = {
     "status_expense_item": {
         "en": "  • {description} — ${amount:.2f} (by {family})",
         "fa": "  • {description} — ${amount:.2f} (توسط {family})",
+    },
+    "status_bank_header": {
+        "en": "\n\n🏦 *Bank Status & Family Balances:*",
+        "fa": "\n\n🏦 *وضعیت تراز مالی و بانک خانواده‌ها:*",
     },
     "status_no_data": {
         "en": "\n_No meals or expenses logged yet._",
