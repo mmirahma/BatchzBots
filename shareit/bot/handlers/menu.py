@@ -61,7 +61,9 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await reply_ephemeral(update, context, msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
         return
 
-    from bot.handlers._helpers import schedule_message_deletion
+    from bot.handlers._helpers import schedule_message_deletion, schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
+
     msg_text = t("menu_title", lang)
     msg = await context.bot.send_message(chat_id=chat_id, text=msg_text, reply_markup=reply_kbd, parse_mode="Markdown")
     schedule_message_deletion(chat_id, msg.message_id, context)
@@ -117,8 +119,10 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     has_pending_input = bool(
         context.user_data.get("pending_meal_desc")
         or context.user_data.get("pending_meal_name")
+        or context.user_data.get("pending_meal_amount_prompt")
+        or context.user_data.get("pending_expense_prompt")
         or context.user_data.get("pending_expense_desc")
-        or context.user_data.get("pending_expense_category")
+        or context.user_data.get("pending_expense_amount_prompt")
         or context.user_data.get("pending_contribute")
         or context.user_data.get("pending_edit_expense")
     )

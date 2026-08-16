@@ -217,7 +217,7 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
     pending_exp_amt = context.user_data.get("pending_expense_amount_prompt")
     if pending_exp_amt and now - pending_exp_amt.get("timestamp", 0) <= 120 and chat_id == pending_exp_amt.get("chat_id"):
         try:
-            val = float(text)
+            val = float(text.replace("$", "").strip())
             if val > 0:
                 context.user_data.pop("pending_expense_amount_prompt", None)
                 context.user_data.pop("pending_expense_prompt", None)
@@ -266,7 +266,7 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
     pending_meal_amt = context.user_data.get("pending_meal_amount_prompt")
     if pending_meal_amt and now - pending_meal_amt.get("timestamp", 0) <= 120 and chat_id == pending_meal_amt.get("chat_id"):
         try:
-            val = float(text)
+            val = float(text.replace("$", "").strip())
             if val >= 0:
                 context.user_data.pop("pending_meal_amount_prompt", None)
                 context.user_data.pop("pending_meal_desc", None)
