@@ -208,10 +208,17 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # 4. Deactivate trip in database
     await end_trip(db_path, trip["id"])
 
-    # 5. Send trip ended farewell message informing users about 48h departure
-    await context.bot.send_message(chat_id=chat_id, text=t("trip_ended_leave_48h", lang, name=trip["name"]), parse_mode="Markdown")
+    # 5. Send trip ended farewell message informing users about 48h departure & offering Resume button
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    resume_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_resume_trip", lang), callback_data="resumetrip_click")]])
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=t("trip_ended_leave_48h", lang, name=trip["name"]),
+        reply_markup=resume_btn,
+        parse_mode="Markdown",
+    )
 
-    # 6. Schedule 48-hour delayed group departure (cancelled if /newtrip is created)
+    # 6. Schedule 48-hour delayed group departure (cancelled if /newtrip or /resumetrip is created)
     if context and context.job_queue:
         from datetime import timedelta
         job_name = f"leave_chat_{chat_id}"
@@ -222,6 +229,30 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             data={"chat_id": chat_id},
             name=job_name,
         )
+
+
+async def resumetrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /resumetrip command or Resume Trip callback button."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    from bot.db import resume_last_trip
+    trip = await resume_last_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_trip_to_resume", lang))
+        return
+
+    cancel_pending_leave_job(chat_id, context)
+
+    msg_text = t("trip_resumed", lang, name=trip["name"])
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(msg_text, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, msg_text, parse_mode="Markdown")
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

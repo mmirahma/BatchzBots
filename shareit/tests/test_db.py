@@ -217,3 +217,25 @@ async def test_edit_my_expenses_db_helpers(db_path):
     conts_after = await get_meal_contributions(db_path, meal_id)
     assert len(conts_after) == 0
 
+
+@pytest.mark.asyncio
+async def test_resume_last_trip_db(db_path):
+    from bot.db import end_trip, resume_last_trip
+    trip_id = await create_trip(db_path, "Camping Resume Test", chat_id=300)
+    active1 = await get_active_trip(db_path, 300)
+    assert active1["id"] == trip_id
+
+    # End the trip
+    await end_trip(db_path, trip_id)
+    active2 = await get_active_trip(db_path, 300)
+    assert active2 is None
+
+    # Resume the trip
+    resumed = await resume_last_trip(db_path, 300)
+    assert resumed is not None
+    assert resumed["id"] == trip_id
+    assert resumed["active"] == 1
+
+    active3 = await get_active_trip(db_path, 300)
+    assert active3["id"] == trip_id
+

@@ -144,6 +144,25 @@ async def end_trip(db_path: str, trip_id: int) -> None:
         await db.commit()
 
 
+async def resume_last_trip(db_path: str, chat_id: int) -> dict | None:
+    """Reactivate the most recently ended trip for a chat, if any."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM trips WHERE chat_id = ? ORDER BY id DESC LIMIT 1",
+            (chat_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            trip = dict(row)
+            await db.execute("UPDATE trips SET active = 0 WHERE chat_id = ?", (chat_id,))
+            await db.execute("UPDATE trips SET active = 1 WHERE id = ?", (trip["id"],))
+            await db.commit()
+            trip["active"] = 1
+            return trip
+
+
 async def get_past_trips(db_path: str, chat_id: int) -> list[dict]:
     """Get all inactive trips for a chat, ordered by most recent."""
     async with aiosqlite.connect(db_path) as db:

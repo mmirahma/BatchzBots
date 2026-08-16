@@ -159,6 +159,15 @@ STRINGS = {
         "en": "✅ *Trip '{name}' ended.*\n\n⏳ BachzTab bot will automatically leave this group in 48 hours (unless a new trip is started with /newtrip).",
         "fa": "✅ *سفر '{name}' پایان یافت.*\n\n⏳ ربات BachzTab تا ۴۸ ساعت آینده به طور خودکار گروه را ترک می‌کند (مگر اینکه سفر جدیدی با /newtrip آغاز شود).",
     },
+    "btn_resume_trip": {"en": "▶️ Resume Trip", "fa": "▶️ از سرگیری سفر"},
+    "trip_resumed": {
+        "en": "▶️ *Trip '{name}' resumed!*\n\nYou can now log new expenses, edit existing expenses with /editmyexpenses, or make corrections. When finished, use /endtrip.",
+        "fa": "▶️ *سفر '{name}' دوباره فعال شد!*\n\nاکنون می‌توانید هزینه‌های جدید ثبت کنید، هزینه‌ها را با /editmyexpenses ویرایش کنید یا اصلاحات انجام دهید. پس از اتمام /endtrip بزنید.",
+    },
+    "no_trip_to_resume": {
+        "en": "⚠️ No recently ended trip found to resume.",
+        "fa": "⚠️ هیچ سفر پایان‌یافته اخیر برای از سرگیری یافت نشد.",
+    },
     "no_active_trip": {
         "en": "⚠️ No active trip. Create one with /newtrip <name>",
         "fa": "⚠️ سفر فعالی نیست. با /newtrip <نام> بسازید.",

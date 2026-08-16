@@ -3,7 +3,7 @@
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
-from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler
+from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler, resumetrip_handler
 from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
 from bot.handlers.meal import (
     meal_handler, contribute_handler, contribute_callback_handler, contribute_amount_handler,
@@ -33,6 +33,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("start", menu_handler))
     app.add_handler(CommandHandler("newtrip", newtrip_handler))
     app.add_handler(CommandHandler("endtrip", endtrip_handler))
+    app.add_handler(CommandHandler("resumetrip", resumetrip_handler))
     app.add_handler(CommandHandler("status", status_handler))
     app.add_handler(CommandHandler("join", join_handler))
     app.add_handler(CommandHandler("meal", meal_handler))
@@ -68,6 +69,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
+    app.add_handler(CallbackQueryHandler(resumetrip_handler, pattern=r"^resumetrip_"))
     app.add_handler(CallbackQueryHandler(export_handler, pattern=r"^export_excel$"))
 
     # Plain text handler for bottom ReplyKeyboard buttons & pending inputs (must be last — lowest priority)
