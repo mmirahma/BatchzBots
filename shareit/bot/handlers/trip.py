@@ -165,4 +165,6 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         text += t("status_no_data", lang)
 
-    await reply_ephemeral(update, context, text, parse_mode="Markdown")
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    excel_button = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel")]])
+    await reply_ephemeral(update, context, text, reply_markup=excel_button, parse_mode="Markdown")

@@ -16,7 +16,7 @@ from bot.handlers.expense import (
 )
 from bot.handlers.settle import settle_handler
 from bot.handlers.corrections import undo_handler, deletemeal_handler, editmeal_handler
-from bot.handlers.utility import lang_handler, help_handler, lang_callback_handler
+from bot.handlers.utility import lang_handler, help_handler, lang_callback_handler, export_handler
 from bot.handlers.info import meals_handler, history_handler
 
 
@@ -40,6 +40,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("editmeal", editmeal_handler))
     app.add_handler(CommandHandler("lang", lang_handler))
     app.add_handler(CommandHandler("help", help_handler))
+    app.add_handler(CommandHandler("export", export_handler))
 
     # Callback Query Handlers
     app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern=r"^menu_"))
@@ -54,6 +55,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(expense_preset_callback_handler, pattern=r"^pexp_"))
     app.add_handler(CallbackQueryHandler(expense_amount_callback_handler, pattern=r"^pexpamt_"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
+    app.add_handler(CallbackQueryHandler(export_handler, pattern=r"^export_excel$"))
 
     # Plain text handler for bottom ReplyKeyboard buttons & pending inputs (must be last — lowest priority)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_menu_handler))

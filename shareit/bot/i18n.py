@@ -23,6 +23,11 @@ STRINGS = {
     "btn_settle": {"en": "💰 Settle", "fa": "💰 تسویه نهایی"},
     "btn_lang": {"en": "🌐 Language", "fa": "🌐 تغییر زبان"},
     "btn_my_share": {"en": "📊 My Share", "fa": "📊 سهم من"},
+    "btn_export_excel": {"en": "📊 Export Excel", "fa": "📊 خروجی اکسل"},
+    "export_caption": {
+        "en": "📊 *Excel Expense Report — {trip_name}*\n\nIncludes detailed itemized breakdown, family cost shares, and bank balance reconciliation.",
+        "fa": "📊 *گزارش اکسل هزینه‌ها — {trip_name}*\n\nشامل جزئیات کامل هزینه‌ها، سهم هر خانواده و تراز نهایی بانک.",
+    },
     "not_implemented": {"en": "ℹ️ This feature is not implemented yet.", "fa": "ℹ️ این قابلیت هنوز پیاده‌سازی نشده است."},
     "join_meal_toggle_title": {
         "en": "📋 *Select Meal/Event Attendance*\n\nTap any meal/event to toggle between Attending (✅) and Skipping (🚫):",
