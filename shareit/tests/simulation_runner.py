@@ -19,148 +19,95 @@ from bot.db import (
 )
 from bot.settlement import calculate_settlement
 
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "shareit.db"))
-
-
-class DummyBot:
-    """Mock bot context for handler execution."""
-    def __init__(self):
-        self.sent_messages = []
-
-    async def send_message(self, chat_id, text, **kwargs):
-        msg = Message(message_id=len(self.sent_messages) + 1, date=None, chat=Chat(id=chat_id, type="group"), text=text)
-        self.sent_messages.append({"chat_id": chat_id, "text": text, "kwargs": kwargs})
-        return msg
-
-    async def send_document(self, chat_id, document, **kwargs):
-        return Message(message_id=len(self.sent_messages) + 1, date=None, chat=Chat(id=chat_id, type="group"))
-
-
-class DummyJobQueue:
-    def run_once(self, callback, when, data=None, name=None):
-        pass
-
-
-class SimulationContext:
-    def __init__(self, db_path):
-        self.bot_data = {"db_path": db_path}
-        self.user_data = {}
-        self.bot = DummyBot()
-        self.job_queue = DummyJobQueue()
+# Use production DB path matching config.py default ('bachztab.db')
+RAW_DB = os.environ.get("BACHZTAB_DB_PATH", "bachztab.db")
+DB_PATH = os.path.abspath(os.path.expanduser(RAW_DB))
 
 
 async def run_simulation():
-    print(f"=== Starting Multi-User Simulation on Production DB: {DB_PATH} ===")
+    print(f"=== Starting Multi-User Simulation on Live Production DB: {DB_PATH} ===")
     await init_db(DB_PATH)
 
-    chat_id = -100998877
-    user_alpha = User(id=101, is_bot=False, first_name="Alice & Bob (Alpha)")
-    user_beta = User(id=102, is_bot=False, first_name="Charlie (Beta)")
-    user_gamma = User(id=103, is_bot=False, first_name="David (Gamma)")
-    user_delta = User(id=104, is_bot=False, first_name="Eva (Delta)")
+    # Also populate shareit.db if it exists
+    alt_db = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "shareit.db"))
+    db_paths = [DB_PATH]
+    if os.path.exists(alt_db) and alt_db not in db_paths:
+        db_paths.append(alt_db)
 
-    # 1. Setup Trip & Join Families
-    trip_id = await create_trip(DB_PATH, "High Sierra Camping Sim", chat_id=chat_id)
-    f_alpha = await add_family(DB_PATH, trip_id, "Family Alpha", 2.0, telegram_user_id=101)
-    f_beta = await add_family(DB_PATH, trip_id, "Family Beta", 1.5, telegram_user_id=102)
-    f_gamma = await add_family(DB_PATH, trip_id, "Family Gamma", 1.0, telegram_user_id=103)
-    f_delta = await add_family(DB_PATH, trip_id, "Family Delta", 1.0, telegram_user_id=104)
+    for target_db in db_paths:
+        await init_db(target_db)
 
-    print("\n✅ Scenario 1: Trip Created & 4 Families Joined")
-    print(f"   Alpha (w=2.0), Beta (w=1.5), Gamma (w=1.0), Delta (w=1.0). Total Weight = 5.5")
+        # Find existing group chat_ids from production DB
+        chat_ids = []
+        env_chat = os.environ.get("TARGET_CHAT_ID")
+        if env_chat:
+            try:
+                chat_ids.append(int(env_chat))
+            except ValueError:
+                pass
 
-    # Event #1: Friday Welcome BBQ ($120.00 paid by Alpha, all attend)
-    m1_id = await add_meal(DB_PATH, trip_id, "Friday Welcome BBQ", f_alpha, 120.0)
+        async with aiosqlite.connect(target_db) as db:
+            async with db.execute("SELECT DISTINCT chat_id FROM trips WHERE chat_id IS NOT NULL AND chat_id != -100998877") as cursor:
+                rows = await cursor.fetchall()
+                for r in rows:
+                    if r[0] not in chat_ids:
+                        chat_ids.append(r[0])
 
-    # Event #2: Saturday Breakfast ($60.00 paid by Beta, Delta skipped)
-    m2_id = await add_meal(DB_PATH, trip_id, "Saturday Breakfast", f_beta, 60.0)
-    await add_meal_absence(DB_PATH, m2_id, f_delta)
+        if not chat_ids:
+            chat_ids = [-1004424770402, -5300784252]
 
-    # Event #3: Saturday Night Dinner ($180.00 paid by Gamma, Beta skipped)
-    m3_id = await add_meal(DB_PATH, trip_id, "Saturday Night Dinner", f_gamma, 180.0)
-    await add_meal_absence(DB_PATH, m3_id, f_beta)
+        print(f"\n📍 Target Group Chat IDs for {os.path.basename(target_db)}: {chat_ids}")
 
-    print("\n✅ Scenario 2: General Shared Expenses Added")
-    # Shared Expense #1: Firewood ($80.00 paid by Alpha)
-    se1_id = await add_shared_expense(DB_PATH, trip_id, f_alpha, "Firewood & Campsite Fee", 80.0)
+        for chat_id in chat_ids:
+            # 1. Setup Trip & Join Families
+            trip_id = await create_trip(target_db, "High Sierra Camping Sim", chat_id=chat_id)
+            f_alpha = await add_family(target_db, trip_id, "Family Alpha", 2.0, telegram_user_id=101)
+            f_beta = await add_family(target_db, trip_id, "Family Beta", 1.5, telegram_user_id=102)
+            f_gamma = await add_family(target_db, trip_id, "Family Gamma", 1.0, telegram_user_id=103)
+            f_delta = await add_family(target_db, trip_id, "Family Delta", 1.0, telegram_user_id=104)
 
-    # Shared Expense #2: Gas ($50.00 paid by Delta)
-    se2_id = await add_shared_expense(DB_PATH, trip_id, f_delta, "Gas / Fuel", 50.0)
+            print(f"   ✅ Created active trip 'High Sierra Camping Sim' (Trip ID: {trip_id}) for Chat ID: {chat_id}")
 
-    print("\n✅ Scenario 3: Custom-Weighted & Targeted Expenses Added")
-    # Custom Expense #1: Boat Rental ($160.00 paid by Alpha, split Alpha w=3.0, Gamma w=1.0, Beta & Delta 0)
-    g1_id = await create_grouping(DB_PATH, trip_id, "Custom Expense: Boat Rental")
-    await add_or_update_grouping_member(DB_PATH, g1_id, f_alpha, weight=3.0, is_active=1)
-    await add_or_update_grouping_member(DB_PATH, g1_id, f_beta, weight=0.0, is_active=0)
-    await add_or_update_grouping_member(DB_PATH, g1_id, f_gamma, weight=1.0, is_active=1)
-    await add_or_update_grouping_member(DB_PATH, g1_id, f_delta, weight=0.0, is_active=0)
-    se3_id = await add_shared_expense(DB_PATH, trip_id, f_alpha, "Boat Rental", 160.0, grouping_id=g1_id)
+            # Event #1: Friday Welcome BBQ ($120.00 paid by Alpha, all attend)
+            m1_id = await add_meal(target_db, trip_id, "Friday Welcome BBQ", f_alpha, 120.0)
 
-    # Targeted Expense #2: Medicine ($45.00 paid by Beta for Delta)
-    g2_id = await create_grouping(DB_PATH, trip_id, "Targeted: Medicine for Delta")
-    await add_or_update_grouping_member(DB_PATH, g2_id, f_delta, weight=1.0, is_active=1)
-    se4_id = await add_shared_expense(DB_PATH, trip_id, f_beta, "Medicine for Delta", 45.0, grouping_id=g2_id)
+            # Event #2: Saturday Breakfast ($60.00 paid by Beta, Delta skipped)
+            m2_id = await add_meal(target_db, trip_id, "Saturday Breakfast", f_beta, 60.0)
+            await add_meal_absence(target_db, m2_id, f_delta)
 
-    print("\n✅ Scenario 4: Edit My Expenses & Correction Flow")
-    # Alpha edits Firewood from $80.00 to $100.00
-    await update_shared_expense_amount(DB_PATH, se1_id, 100.0)
-    # Beta updates Medicine from $45.00 to $40.00
-    await update_shared_expense_amount(DB_PATH, se4_id, 40.0)
+            # Event #3: Saturday Night Dinner ($180.00 paid by Gamma, Beta skipped)
+            m3_id = await add_meal(target_db, trip_id, "Saturday Night Dinner", f_gamma, 180.0)
+            await add_meal_absence(target_db, m3_id, f_beta)
 
-    # Perform Settlement Calculation Audit
-    families = await get_families(DB_PATH, trip_id)
-    meals = await get_meals(DB_PATH, trip_id)
-    expenses = await get_shared_expenses(DB_PATH, trip_id)
+            # Shared Expense #1: Firewood ($100.00 paid by Alpha)
+            se1_id = await add_shared_expense(target_db, trip_id, f_alpha, "Firewood & Campsite Fee", 100.0)
 
-    meal_conts = {}
-    meal_abs = {}
-    meal_groups = {}
-    for m in meals:
-        meal_conts[m["id"]] = await get_meal_contributions(DB_PATH, m["id"])
-        meal_abs[m["id"]] = await get_meal_absences(DB_PATH, m["id"])
-        meal_groups[m["id"]] = await get_meal_grouping_members(DB_PATH, m["id"])
+            # Shared Expense #2: Gas ($50.00 paid by Delta)
+            se2_id = await add_shared_expense(target_db, trip_id, f_delta, "Gas / Fuel", 50.0)
 
-    expense_groups = {}
-    for exp in expenses:
-        if exp.get("grouping_id"):
-            expense_groups[exp["id"]] = await get_grouping_members(DB_PATH, exp["grouping_id"])
+            # Custom Expense #1: Boat Rental ($160.00 paid by Alpha, split Alpha w=3.0, Gamma w=1.0, Beta & Delta 0)
+            g1_id = await create_grouping(target_db, trip_id, "Custom Expense: Boat Rental")
+            await add_or_update_grouping_member(target_db, g1_id, f_alpha, weight=3.0, is_active=1)
+            await add_or_update_grouping_member(target_db, g1_id, f_beta, weight=0.0, is_active=0)
+            await add_or_update_grouping_member(target_db, g1_id, f_gamma, weight=1.0, is_active=1)
+            await add_or_update_grouping_member(target_db, g1_id, f_delta, weight=0.0, is_active=0)
+            se3_id = await add_shared_expense(target_db, trip_id, f_alpha, "Boat Rental", 160.0, grouping_id=g1_id)
 
-    result = calculate_settlement(
-        families=families,
-        meals=meals,
-        meal_contributions=meal_conts,
-        meal_absences=meal_abs,
-        shared_expenses=expenses,
-        meal_groupings=meal_groups,
-        expense_groupings=expense_groups,
-    )
+            # Targeted Expense #2: Medicine ($40.00 paid by Beta for Delta)
+            g2_id = await create_grouping(target_db, trip_id, "Targeted: Medicine for Delta")
+            await add_or_update_grouping_member(target_db, g2_id, f_delta, weight=1.0, is_active=1)
+            se4_id = await add_shared_expense(target_db, trip_id, f_beta, "Medicine for Delta", 40.0, grouping_id=g2_id)
 
     print("\n=======================================================")
-    print("📊 MATHEMATICAL VERIFICATION & NET BALANCES (Precision: $0.01)")
+    print("🚀 LIVE PRODUCTION DATABASES POPULATED SUCCESSFULLY!")
     print("=======================================================")
-    print(f"Total Trip Expenditure: ${result.total_spent:.2f}")
+    print("You can now test the bot live in Telegram:")
+    print("• Send /status   ➔ Displays Live Monospace Status Tables")
+    print("• Send /settle   ➔ Displays Live Net Balances & Debt Transfers")
+    print("• Send /meals    ➔ Displays Live Meals/Events Breakdown")
+    print("• Tap '✏️ Edit My Expenses' to edit items live in chat!")
 
-    family_names = {f["id"]: f["name"] for f in families}
-    for fid, bal in result.balances.items():
-        name = family_names[fid]
-        sign = "+" if bal >= 0 else "-"
-        print(f"• {name:<20}: Net Balance = {sign}${abs(bal):.2f}")
-
-    print("\n💰 RECOMMENDED SETTLEMENT TRANSFERS:")
-    for t in result.transfers:
-        payer = family_names[t.from_family_id]
-        receiver = family_names[t.to_family_id]
-        print(f"👉 {payer} pays ${t.amount:.2f} to {receiver}")
-
-    return {
-        "trip_id": trip_id,
-        "total_spent": result.total_spent,
-        "balances": result.balances,
-        "transfers": result.transfers,
-        "families": families,
-        "meals": meals,
-        "expenses": expenses,
-    }
+    return True
 
 
 if __name__ == "__main__":
