@@ -14,7 +14,38 @@ from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
 
 
 async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /meals — show detailed meal breakdown and active groupings."""
+    """Handle /meals — display compact action menu with Add New Meal, Manage Meals, and Meals Status buttons."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    buttons = [
+        [
+            InlineKeyboardButton(t("btn_add_meal", lang), callback_data="menu_meal"),
+            InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
+        ],
+        [
+            InlineKeyboardButton(t("btn_meals_status", lang), callback_data="menu_meals_status"),
+        ],
+    ]
+    reply_markup = InlineKeyboardMarkup(buttons)
+    text = t("meals_menu_prompt", lang)
+
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def meals_status_report_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle menu_meals_status callback — show detailed report for each meal including expenses and who skipped."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
@@ -68,7 +99,10 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             if skipped_parts:
                 text += "\n  🚫 Skipped: " + ", ".join(skipped_parts)
 
-    await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
 
 
 async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

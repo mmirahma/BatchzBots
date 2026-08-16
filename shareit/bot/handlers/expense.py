@@ -70,7 +70,7 @@ async def prompt_expense_preset(update: Update, context: ContextTypes.DEFAULT_TY
     if update.callback_query:
         await update.callback_query.edit_message_text(title, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
     else:
-        await update.effective_message.reply_text(title, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        await reply_ephemeral(update, context, title, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
 
 
 async def expense_menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

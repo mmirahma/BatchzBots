@@ -88,7 +88,7 @@ shareit/
 
 ## 3. Database Architecture & Schema
 
-The database utilizes SQLite managed asynchronously by [`bot/db.py`](file:///home/maysam/BatchzBots/shareit/bot/db.py). Each meal and shared expense links to a **Grouping** (Group of Associations), which specifies family participation and specific weights.
+The database utilizes SQLite managed asynchronously by `bot/db.py`. Each meal and shared expense links to a **Grouping** (Group of Associations), which specifies family participation and specific weights.
 
 ```mermaid
 erDiagram
@@ -262,4 +262,4 @@ sequenceDiagram
 - **Token Security:** Reads `BACHZTAB_BOT_TOKEN` from environment variables.
 - **Database File:** Default location `bachztab.db` (configurable via `BACHZTAB_DB_PATH`). Auto-migrates schema on startup.
 - **Group Isolation:** Strictly bound by Telegram `chat_id`. Multiple groups can operate concurrently.
-- **Service Deployment:** Daemonized via systemd using unit file [`shareit.service`](file:///home/maysam/BatchzBots/shareit/shareit.service).
+- **Service Deployment:** Daemonized via systemd using unit file `shareit.service`.

@@ -14,6 +14,17 @@ logger = logging.getLogger(__name__)
 EPHEMERAL_DELETE_SECONDS = 60  # 1 minute
 
 
+def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Schedule deletion of user's incoming message after 1 minute (60s)."""
+    if update.effective_message and update.effective_chat and not update.callback_query:
+        context.job_queue.run_once(
+            _delete_message_job,
+            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+            data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
+            name=f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}",
+        )
+
+
 async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:
     """Send a reply that auto-deletes after 1 minute, and schedule deletion of user trigger message."""
     target = update.effective_message
@@ -36,13 +47,7 @@ async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         )
 
     # Schedule deletion of user's command message after 1 minute as well
-    if update.effective_message and update.effective_chat and not update.callback_query:
-        context.job_queue.run_once(
-            _delete_message_job,
-            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-            data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
-            name=f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}",
-        )
+    schedule_user_message_deletion(update, context)
 
     return msg
 

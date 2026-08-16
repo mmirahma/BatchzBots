@@ -52,9 +52,12 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Intercept persistent bottom ReplyKeyboard button presses."""
+    """Intercept persistent bottom ReplyKeyboard button presses and text input."""
     if not update.message or not update.message.text:
         return
+
+    from bot.handlers._helpers import schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
 
     text = update.message.text.strip()
     lang = await get_lang(update, context)
@@ -121,6 +124,9 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_meals":
             from bot.handlers.info import meals_handler
             await meals_handler(update, context)
+        elif data == "menu_meals_status":
+            from bot.handlers.info import meals_status_report_handler
+            await meals_status_report_handler(update, context)
         elif data == "menu_settle":
             from bot.handlers.settle import settle_handler
             await settle_handler(update, context)

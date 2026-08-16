@@ -1,10 +1,12 @@
-from __future__ import annotations
-
+import os
 import aiosqlite
 
 
 async def init_db(db_path: str) -> None:
     """Initialize the database schema."""
+    parent = os.path.dirname(os.path.abspath(os.path.expanduser(db_path)))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     async with aiosqlite.connect(db_path) as db:
         await db.executescript("""
             CREATE TABLE IF NOT EXISTS trips (

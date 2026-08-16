@@ -21,8 +21,8 @@ async def prompt_lang_preset(update: Update, context: ContextTypes.DEFAULT_TYPE)
             t("lang_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
     else:
-        await update.message.reply_text(
-            t("lang_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons)
+        await reply_ephemeral(
+            update, context, t("lang_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
 
 

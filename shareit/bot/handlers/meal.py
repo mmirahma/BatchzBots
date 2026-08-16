@@ -113,8 +113,8 @@ async def contribute_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton(f"#{m['meal_number']} {m['name']}", callback_data=f"contrib_{m['meal_number']}")]
             for m in meals
         ]
-        await update.effective_message.reply_text(
-            t("contribute_select_meal", lang), reply_markup=InlineKeyboardMarkup(buttons)
+        await reply_ephemeral(
+            update, context, t("contribute_select_meal", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
         return
 
@@ -367,11 +367,6 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
 
     context.user_data["last_action"] = {"type": "contribution", "meal_id": meal_id, "family_id": family["id"], "trip_id": trip_id}
     context.user_data.pop("pending_contribute", None)
-    await update.effective_message.reply_text(
-        t("contribute_added", lang, number=meal_number, name=meal_name, amount=amount, total=total)
-    )
-    context.user_data.pop("pending_contribute", None)
-
     await reply_ephemeral(update, context,
         t("contribution_added", lang, family=family["name"], amount=amount, number=meal_number, name=meal_name, total=total)
     )
@@ -444,8 +439,12 @@ async def skip_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 MEAL_PRESETS = [
     [("Breakfast 🥞", "pmeal_Breakfast"), ("Lunch 🥪", "pmeal_Lunch")],
-    [("Dinner 🍖", "pmeal_Dinner"), ("Snacks 🍎", "pmeal_Snacks")],
-    [("Drinks 🥤", "pmeal_Drinks"), ("Custom ✏️", "pmeal_Custom")],
+    [("Dinner 🍖", "pmeal_Dinner"), ("BBQ / Grill 🥩", "pmeal_BBQ")],
+    [("Snacks 🍎", "pmeal_Snacks"), ("Drinks 🥤", "pmeal_Drinks")],
+    [("Boating / Water 🛶", "pmeal_Boating"), ("Movie Night 🎬", "pmeal_Movie Night")],
+    [("Hiking / Trail 🥾", "pmeal_Hiking"), ("Games & Cards 🎲", "pmeal_Games")],
+    [("Squash 🎾", "pmeal_Squash"), ("Soccer / Sports ⚽", "pmeal_Soccer")],
+    [("Tour / Excursion 🎟", "pmeal_Tour"), ("Custom ✏️", "pmeal_Custom")],
 ]
 
 AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
@@ -464,8 +463,8 @@ async def prompt_meal_preset(update: Update, context: ContextTypes.DEFAULT_TYPE)
             t("meal_select_preset", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
     else:
-        await update.effective_message.reply_text(
-            t("meal_select_preset", lang), reply_markup=InlineKeyboardMarkup(buttons)
+        await reply_ephemeral(
+            update, context, t("meal_select_preset", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
 
 

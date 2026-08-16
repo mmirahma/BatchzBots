@@ -36,8 +36,8 @@ async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 row = []
         if row:
             buttons.append(row)
-        await update.effective_message.reply_text(
-            t("join_select_weight", lang), reply_markup=InlineKeyboardMarkup(buttons)
+        await reply_ephemeral(
+            update, context, t("join_select_weight", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
         return
 
