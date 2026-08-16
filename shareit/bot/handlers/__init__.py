@@ -11,7 +11,7 @@ async def global_user_message_logger(update: Update, context: ContextTypes.DEFAU
             schedule_message_deletion(update.effective_chat.id, update.effective_message.message_id, context)
     elif update.callback_query and update.callback_query.message and update.effective_chat:
         data = update.callback_query.data or ""
-        if data not in ("menu_settle", "menu_status"):
+        if data != "menu_settle":
             schedule_message_deletion(update.effective_chat.id, update.callback_query.message.message_id, context)
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler

@@ -192,12 +192,5 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         text += t("status_no_data", lang)
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    from bot.handlers._helpers import schedule_user_message_deletion
-
-    schedule_user_message_deletion(update, context)
-
     excel_button = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel")]])
-    if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=excel_button, parse_mode="Markdown")
-    else:
-        await update.effective_message.reply_text(text, reply_markup=excel_button, parse_mode="Markdown")
+    await reply_ephemeral(update, context, text, reply_markup=excel_button, parse_mode="Markdown")
