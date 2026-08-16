@@ -9,7 +9,6 @@ EXPENSE_PRESETS = [
     [("Firewood 🪵", "pexp_Firewood"), ("Park Entry 🏞", "pexp_Park Entry")],
     [("Groceries 🛒", "pexp_Groceries"), ("Ice 🧊", "pexp_Ice")],
     [("Campsite Fee ⛺️", "pexp_Campsite Fee"), ("Gas / Fuel ⛽️", "pexp_Gas")],
-    [("Custom ✏️", "pexp_Custom")],
 ]
 
 AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
@@ -87,14 +86,25 @@ async def expense_menu_callback_handler(update: Update, context: ContextTypes.DE
 
 
 async def prompt_general_expense_categories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show general shared expense category preset buttons."""
+    """Show general shared expense category preset buttons and enable direct typed custom description."""
+    import time as _time
     lang = await get_lang(update, context)
+    chat_id = update.effective_chat.id
+
+    context.user_data["pending_expense_prompt"] = {
+        "category": "General",
+        "chat_id": chat_id,
+        "timestamp": _time.time(),
+    }
+
     buttons = [
         [InlineKeyboardButton(label, callback_data=cb) for label, cb in row]
         for row in EXPENSE_PRESETS
     ]
     await update.callback_query.edit_message_text(
-        t("expense_select_preset", lang), reply_markup=InlineKeyboardMarkup(buttons)
+        t("expense_select_preset", lang),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown",
     )
 
 
@@ -107,42 +117,30 @@ async def expense_preset_callback_handler(update: Update, context: ContextTypes.
     lang = await get_lang(update, context)
     chat_id = update.effective_chat.id
 
-    if category == "Custom":
-        context.user_data["pending_expense_prompt"] = {
-            "category": "Custom",
-            "chat_id": chat_id,
-            "timestamp": _time.time(),
-        }
-        await query.edit_message_text(t("expense_ask_custom_desc", lang), parse_mode="Markdown")
-    else:
-        context.user_data["pending_expense_desc"] = category
-        context.user_data["pending_expense_prompt"] = {
-            "category": category,
-            "chat_id": chat_id,
-            "timestamp": _time.time(),
-        }
-        context.user_data["pending_expense_amount_prompt"] = {
-            "desc": category,
-            "chat_id": chat_id,
-            "timestamp": _time.time(),
-        }
+    context.user_data.pop("pending_expense_prompt", None)
+    context.user_data["pending_expense_desc"] = category
+    context.user_data["pending_expense_amount_prompt"] = {
+        "desc": category,
+        "chat_id": chat_id,
+        "timestamp": _time.time(),
+    }
 
-        buttons = []
-        row = []
-        for amt in AMOUNT_PRESETS:
-            label = f"${int(amt)}"
-            row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
-            if len(row) == 3:
-                buttons.append(row)
-                row = []
-        if row:
+    buttons = []
+    row = []
+    for amt in AMOUNT_PRESETS:
+        label = f"${int(amt)}"
+        row.append(InlineKeyboardButton(label, callback_data=f"pexpamt_{amt:.2f}"))
+        if len(row) == 3:
             buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
 
-        await query.edit_message_text(
-            t("expense_ask_desc", lang, category=category),
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="Markdown",
-        )
+    await query.edit_message_text(
+        t("expense_ask_desc", lang, category=category),
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown",
+    )
 
 
 async def expense_amount_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

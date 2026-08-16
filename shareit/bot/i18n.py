@@ -81,8 +81,8 @@ STRINGS = {
         "fa": "🪵 هزینه عمومی (هیزم، ورودی، بنزین و...)",
     },
     "expense_ask_desc": {
-        "en": "💸 *{category} Selected*\n\nPlease type a specific description (e.g., *2 Bundles from Store*) or select payment amount below:",
-        "fa": "💸 *{category} انتخاب شد*\n\nلطفاً توضیحات (مثلاً *۲ بسته از فروشگاه*) را تایپ کنید یا مبلغ را از دکمه‌های زیر انتخاب کنید:",
+        "en": "💸 *{category} Selected*\n\nSelect payment amount below or type a custom number in chat:",
+        "fa": "💸 *{category} انتخاب شد*\n\nمبلغ پرداخت را از دکمه‌های زیر انتخاب کنید یا یک عدد تایپ کنید:",
     },
     "expense_ask_custom_desc": {
         "en": "✏️ *Custom Expense*\n\nPlease type the description for this expense (e.g., *Kayak Rental*):",
@@ -105,8 +105,8 @@ STRINGS = {
         "fa": "✏️ *وعده/رویداد سفارشی*\n\nلطفاً توضیحات این وعده/رویداد را تایپ کنید (مثلاً پیتزا آتشین):",
     },
     "expense_select_preset": {
-        "en": "💸 Select a shared expense category:",
-        "fa": "💸 دسته‌بندی هزینه مشترک را انتخاب کنید:",
+        "en": "💸 *Log General Shared Expense*\n\nSelect a preset category below OR type your custom description in chat:",
+        "fa": "💸 *ثبت هزینه مشترک عمومی*\n\nیک دسته‌بندی از دکمه‌های زیر انتخاب کنید یا عنوان دلخواه را در چت تایپ کنید:",
     },
     "select_amount_preset": {
         "en": "💵 Select payment amount for '{name}' (or type a custom number):",
