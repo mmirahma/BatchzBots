@@ -277,6 +277,10 @@ STRINGS = {
         "fa": "✅ وعده/رویداد #{number} '{name}' حذف شد.",
     },
     "btn_delete_meal": {"en": "🗑 Delete Event", "fa": "🗑 حذف رویداد/وعده"},
+    "delmeal_select_prompt": {
+        "en": "🗑 *Delete Meal/Event*\n\nSelect a meal/event below to delete it:",
+        "fa": "🗑 *حذف رویداد/وعده*\n\nیک رویداد/وعده را برای حذف از لیست زیر انتخاب کنید:",
+    },
     "delmeal_warning": {
         "en": "⚠️ *Warning: Event #{number} '{name}' has ${total:.2f} in logged payments!*\n\nDeleting this event will permanently remove all logged payments and contributions associated with it. Are you sure you want to proceed?",
         "fa": "⚠️ *هشدار: رویداد #{number} '{name}' دارای ${total:.2f} پرداخت ثبت‌شده است!*\n\nحذف این رویداد باعث حذف همیشگی تمام پرداخت‌ها و سهم‌های ثبت‌شده آن می‌شود. آیا مطمئن هستید؟",

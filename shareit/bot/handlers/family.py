@@ -142,10 +142,7 @@ async def prompt_join_meal_toggles(update: Update, context: ContextTypes.DEFAULT
         is_attending = state.get(m["id"], True)
         icon = "✅" if is_attending else "🚫"
         label = f"{icon} #{m['meal_number']} {m['name']}"
-        buttons.append([
-            InlineKeyboardButton(label, callback_data=f"jmat_toggle_{m['id']}"),
-            InlineKeyboardButton("🗑", callback_data=f"delmeal_prompt_{m['id']}"),
-        ])
+        buttons.append([InlineKeyboardButton(label, callback_data=f"jmat_toggle_{m['id']}")])
 
     buttons.append([InlineKeyboardButton(t("btn_done", lang), callback_data="jmat_done")])
     reply_markup = InlineKeyboardMarkup(buttons)

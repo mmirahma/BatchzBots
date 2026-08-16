@@ -14,7 +14,7 @@ from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
 
 
 async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /meals — display compact action menu with Add New Meal, Manage Meals, and Meals Status buttons."""
+    """Handle /meals — display compact action menu with Add Meal, Delete Meal, Manage Meals, and Meals Status buttons."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
@@ -29,15 +29,48 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     buttons = [
         [
             InlineKeyboardButton(t("btn_add_meal", lang), callback_data="menu_meal"),
-            InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
+            InlineKeyboardButton(t("btn_delete_meal", lang), callback_data="menu_delete_meal"),
         ],
         [
+            InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
             InlineKeyboardButton(t("btn_meals_status", lang), callback_data="menu_meals_status"),
         ],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
     text = t("meals_menu_prompt", lang)
 
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def delete_meal_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle menu_delete_meal callback — show meal list selection for deletion."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    meals = await get_meals(db_path, trip["id"])
+    if not meals:
+        await reply_ephemeral(update, context, t("no_meals_yet", lang))
+        return
+
+    buttons = [
+        [InlineKeyboardButton(f"🗑 #{m['meal_number']} {m['name']}", callback_data=f"delmeal_prompt_{m['id']}")]
+        for m in meals
+    ]
+    buttons.append([InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_meals")])
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    text = t("delmeal_select_prompt", lang)
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
     else:
@@ -63,8 +96,11 @@ async def meals_status_report_handler(update: Update, context: ContextTypes.DEFA
     buttons = [
         [
             InlineKeyboardButton(t("btn_add_meal", lang), callback_data="menu_meal"),
+            InlineKeyboardButton(t("btn_delete_meal", lang), callback_data="menu_delete_meal"),
+        ],
+        [
             InlineKeyboardButton(t("btn_manage_meals", lang), callback_data="menu_skip"),
-        ]
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
 

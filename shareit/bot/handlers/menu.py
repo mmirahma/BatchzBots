@@ -196,6 +196,9 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_meals_status":
             from bot.handlers.info import meals_status_report_handler
             await meals_status_report_handler(update, context)
+        elif data == "menu_delete_meal":
+            from bot.handlers.info import delete_meal_menu_handler
+            await delete_meal_menu_handler(update, context)
         elif data == "menu_settle":
             from bot.handlers.settle import settle_handler
             await settle_handler(update, context)

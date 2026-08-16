@@ -194,7 +194,7 @@ async def delete_meal_prompt_callback_handler(update: Update, context: ContextTy
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     buttons = [
         [InlineKeyboardButton(t("btn_confirm_delmeal", lang), callback_data=f"delmeal_confirm_{meal_id}")],
-        [InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_skip")],
+        [InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_delete_meal")],
     ]
 
     warn_msg = t("delmeal_warning", lang, number=meal["meal_number"], name=meal["name"], total=total_paid)
