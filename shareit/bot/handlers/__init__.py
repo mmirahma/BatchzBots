@@ -12,7 +12,7 @@ from bot.handlers.meal import (
 )
 from bot.handlers.expense import (
     expense_handler, expense_preset_callback_handler, expense_amount_callback_handler,
-    expense_menu_callback_handler,
+    expense_menu_callback_handler, targeted_expense_family_callback_handler, targeted_amount_callback_handler,
 )
 from bot.handlers.settle import settle_handler
 from bot.handlers.corrections import undo_handler, deletemeal_handler, editmeal_handler
@@ -63,6 +63,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(expense_menu_callback_handler, pattern=r"^exp_"))
     app.add_handler(CallbackQueryHandler(expense_preset_callback_handler, pattern=r"^pexp_"))
     app.add_handler(CallbackQueryHandler(expense_amount_callback_handler, pattern=r"^pexpamt_"))
+    app.add_handler(CallbackQueryHandler(targeted_expense_family_callback_handler, pattern=r"^ptargetfam_"))
+    app.add_handler(CallbackQueryHandler(targeted_amount_callback_handler, pattern=r"^ptgtamt_"))
     app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))

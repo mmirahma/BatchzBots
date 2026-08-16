@@ -159,7 +159,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # 4. Bank Status Section
     if families and (meals or expenses):
         from bot.settlement import calculate_settlement
-        from bot.db import get_meal_absences, get_meal_grouping_members
+        from bot.db import get_meal_absences, get_meal_grouping_members, get_grouping_members
 
         meal_conts = {}
         meal_abs = {}
@@ -169,6 +169,11 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
             meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
 
+        expense_groups = {}
+        for exp in expenses:
+            if exp.get("grouping_id"):
+                expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
+
         res = calculate_settlement(
             families=families,
             meals=meals,
@@ -176,6 +181,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             meal_absences=meal_abs,
             shared_expenses=expenses,
             meal_groupings=meal_groups,
+            expense_groupings=expense_groups,
         )
 
         balances = res.balances

@@ -47,10 +47,21 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             for gm in group_members
         ]
 
+    from bot.db import get_grouping_members
+    expense_groupings = {}
+    for e in expenses:
+        if e.get("grouping_id"):
+            gm_members = await get_grouping_members(db_path, e["grouping_id"])
+            expense_groupings[e["id"]] = [
+                {"family_id": gm["family_id"], "weight": gm["weight"], "is_active": gm["is_active"]}
+                for gm in gm_members
+            ]
+
     expense_data = [{"family_id": e["family_id"], "description": e["description"], "amount": e["amount"], "id": e["id"]} for e in expenses]
 
     result = calculate_settlement(
-        families, meals, meal_contributions, meal_absences, expense_data, meal_groupings=meal_groupings
+        families, meals, meal_contributions, meal_absences, expense_data,
+        meal_groupings=meal_groupings, expense_groupings=expense_groupings
     )
     family_names = {f["id"]: f["name"] for f in families}
 

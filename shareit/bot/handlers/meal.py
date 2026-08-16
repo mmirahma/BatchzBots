@@ -235,6 +235,47 @@ async def contribute_amount_handler(update: Update, context: ContextTypes.DEFAUL
         except ValueError:
             pass  # Not a number, fall through to description text check
 
+    # Check if user typed a number for targeted expense amount
+    pending_tgt_amt = context.user_data.get("pending_targeted_expense_amt_prompt")
+    if pending_tgt_amt and now - pending_tgt_amt.get("timestamp", 0) <= 120 and chat_id == pending_tgt_amt.get("chat_id"):
+        try:
+            val = float(text.replace("$", "").strip())
+            if val > 0:
+                context.user_data.pop("pending_targeted_expense_amt_prompt", None)
+                desc = pending_tgt_amt.get("desc", "Specific Expense")
+                from bot.handlers.expense import prompt_targeted_expense_family
+                await prompt_targeted_expense_family(update, context, desc, val)
+                return
+        except ValueError:
+            pass
+
+    # Check pending targeted expense description prompt (text string typed)
+    pending_tgt_desc = context.user_data.get("pending_targeted_expense_desc")
+    if pending_tgt_desc and now - pending_tgt_desc.get("timestamp", 0) <= 120 and chat_id == pending_tgt_desc.get("chat_id"):
+        desc = text
+        context.user_data.pop("pending_targeted_expense_desc", None)
+        context.user_data["pending_targeted_expense_amt_prompt"] = {"desc": desc, "chat_id": chat_id, "timestamp": now}
+
+        lang = await get_lang(update, context)
+        from bot.handlers.expense import AMOUNT_PRESETS
+        buttons = []
+        row = []
+        for amt in AMOUNT_PRESETS:
+            label = f"${int(amt)}"
+            row.append(InlineKeyboardButton(label, callback_data=f"ptgtamt_{amt:.2f}"))
+            if len(row) == 3:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        await reply_ephemeral(update, context,
+            t("targeted_ask_amount", lang, desc=desc),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="Markdown"
+        )
+        return
+
     # 2. Check pending general expense description prompt (text string typed)
     pending_exp = context.user_data.get("pending_expense_prompt")
     if pending_exp and now - pending_exp.get("timestamp", 0) <= 120 and chat_id == pending_exp.get("chat_id"):

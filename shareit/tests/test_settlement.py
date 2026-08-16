@@ -112,3 +112,22 @@ def test_meal_grouping_settlement():
     assert len(result.transfers) == 1
     assert result.transfers[0].amount == pytest.approx(25.0)
 
+
+def test_targeted_expense_settlement():
+    """Test targeted expense paid by Family A specifically for Family C."""
+    families = [make_family(1, "A", 2.0), make_family(2, "B", 2.0), make_family(3, "C", 2.0)]
+    shared_expenses = [{"id": 50, "family_id": 1, "description": "Medicine for C", "amount": 60.0}]
+    expense_groupings = {
+        50: [
+            {"family_id": 3, "weight": 2.0, "is_active": 1},
+        ]
+    }
+    result = calculate_settlement(
+        families, [], {}, {}, shared_expenses, expense_groupings=expense_groupings
+    )
+    assert result.total_spent == 60.0
+    assert len(result.transfers) == 1
+    assert result.transfers[0].from_family_id == 3  # Family C owes Family A
+    assert result.transfers[0].to_family_id == 1
+    assert result.transfers[0].amount == pytest.approx(60.0)
+
