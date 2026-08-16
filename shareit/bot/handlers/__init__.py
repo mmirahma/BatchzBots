@@ -1,18 +1,7 @@
-from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, TypeHandler, ContextTypes, filters
+"""Register all command handlers with the bot application."""
 
-from bot.handlers._helpers import schedule_user_message_deletion, schedule_message_deletion
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-
-async def global_user_message_logger(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Global pre-handler to schedule self-destruction for all user text messages and inline button interactions (60s)."""
-    if update.effective_message and update.effective_chat and not update.callback_query:
-        if update.effective_user and not update.effective_user.is_bot:
-            schedule_message_deletion(update.effective_chat.id, update.effective_message.message_id, context)
-    elif update.callback_query and update.callback_query.message and update.effective_chat:
-        data = update.callback_query.data or ""
-        if data != "menu_settle":
-            schedule_message_deletion(update.effective_chat.id, update.callback_query.message.message_id, context)
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler
 from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
@@ -31,14 +20,8 @@ from bot.handlers.utility import lang_handler, help_handler, lang_callback_handl
 from bot.handlers.info import meals_handler, history_handler, my_share_handler
 
 
-async def global_user_message_logger(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Global pre-handler to schedule self-destruction for all incoming user messages (60s)."""
-    schedule_user_message_deletion(update, context)
-
-
 def register_handlers(app: Application) -> None:
     """Register all command and callback handlers."""
-    app.add_handler(TypeHandler(Update, global_user_message_logger), group=-1)
     app.add_handler(CommandHandler("menu", menu_handler))
     app.add_handler(CommandHandler("start", menu_handler))
     app.add_handler(CommandHandler("newtrip", newtrip_handler))
