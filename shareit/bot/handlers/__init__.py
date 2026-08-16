@@ -1,7 +1,7 @@
-"""Register all command handlers with the bot application."""
+from telegram import Update
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, TypeHandler, ContextTypes, filters
 
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-
+from bot.handlers._helpers import schedule_user_message_deletion
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler
 from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
@@ -20,8 +20,14 @@ from bot.handlers.utility import lang_handler, help_handler, lang_callback_handl
 from bot.handlers.info import meals_handler, history_handler, my_share_handler
 
 
+async def global_user_message_logger(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global pre-handler to schedule self-destruction for all incoming user messages (60s)."""
+    schedule_user_message_deletion(update, context)
+
+
 def register_handlers(app: Application) -> None:
     """Register all command and callback handlers."""
+    app.add_handler(TypeHandler(Update, global_user_message_logger), group=-1)
     app.add_handler(CommandHandler("menu", menu_handler))
     app.add_handler(CommandHandler("start", menu_handler))
     app.add_handler(CommandHandler("newtrip", newtrip_handler))

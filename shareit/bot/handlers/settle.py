@@ -112,7 +112,10 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         [InlineKeyboardButton(t("btn_open_menu", lang), callback_data="menu_open")],
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
+    from bot.handlers._helpers import schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
+
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
     else:
-        await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
+        await update.effective_message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")

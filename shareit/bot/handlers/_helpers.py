@@ -17,12 +17,15 @@ EPHEMERAL_DELETE_SECONDS = 60  # 1 minute
 def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Schedule deletion of user's incoming message after 1 minute (60s)."""
     if update.effective_message and update.effective_chat and not update.callback_query:
-        context.job_queue.run_once(
-            _delete_message_job,
-            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-            data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
-            name=f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}",
-        )
+        if update.effective_user and not update.effective_user.is_bot:
+            job_name = f"ephemeral_user_{update.effective_chat.id}_{update.effective_message.message_id}"
+            if context.job_queue and not context.job_queue.get_jobs_by_name(job_name):
+                context.job_queue.run_once(
+                    _delete_message_job,
+                    when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
+                    data={"chat_id": update.effective_chat.id, "message_id": update.effective_message.message_id},
+                    name=job_name,
+                )
 
 
 async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:
