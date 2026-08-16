@@ -78,7 +78,7 @@ async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /endtrip command."""
+    """Handle /endtrip command — calculate settlement, send Excel report, end trip, and leave channel."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
@@ -90,8 +90,105 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
+    from bot.db import (
+        get_families, get_meals, get_shared_expenses,
+        get_meal_contributions, get_meal_absences, get_meal_grouping_members, get_grouping_members, end_trip
+    )
+    from bot.settlement import calculate_settlement
+    from bot.export import create_excel_report
+
+    families = await get_families(db_path, trip["id"])
+    meals = await get_meals(db_path, trip["id"])
+    expenses = await get_shared_expenses(db_path, trip["id"])
+
+    meal_conts = {}
+    meal_abs = {}
+    meal_groups = {}
+    for m in meals:
+        meal_conts[m["id"]] = await get_meal_contributions(db_path, m["id"])
+        meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
+        meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
+
+    expense_groups = {}
+    for exp in expenses:
+        if exp.get("grouping_id"):
+            expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
+
+    # 1. Calculate final settlement
+    res = calculate_settlement(
+        families=families,
+        meals=meals,
+        meal_contributions=meal_conts,
+        meal_absences=meal_abs,
+        shared_expenses=expenses,
+        meal_groupings=meal_groups,
+        expense_groupings=expense_groups,
+    )
+
+    # 2. Format & send permanent settlement message
+    family_names = {f["id"]: f["name"] for f in families}
+    text = t("settle_header", lang,
+             trip_name=trip["name"],
+             family_count=len(families),
+             meal_count=len(meals),
+             expense_count=len(expenses),
+             total_spent=res.total_spent)
+
+    if res.transfers:
+        text += t("settle_transfers_header", lang, count=len(res.transfers))
+        for i, transfer in enumerate(res.transfers, 1):
+            from_name = family_names.get(transfer.from_family_id, "Family")
+            to_name = family_names.get(transfer.to_family_id, "Family")
+            text += "\n" + t("settle_transfer", lang, index=i, debtor=from_name, amount=transfer.amount, creditor=to_name)
+    else:
+        text += "\n\n" + t("nothing_to_settle", lang)
+
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+
+    # 3. Generate & send Excel document attachment
+    group_title = update.effective_chat.title if update.effective_chat and update.effective_chat.title else trip["name"]
+    excel_file = create_excel_report(
+        trip_name=trip["name"],
+        families=families,
+        meals=meals,
+        expenses=expenses,
+        meal_contributions=meal_conts,
+        meal_absences=meal_abs,
+        meal_groupings=meal_groups,
+        expense_groupings=expense_groups,
+        group_title=group_title,
+    )
+
+    raw_channel = update.effective_chat.title if update.effective_chat and update.effective_chat.title else "Group"
+    raw_trip = trip["name"] if trip and trip.get("name") else "Trip"
+    clean_channel = "".join(c for c in raw_channel if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    clean_trip = "".join(c for c in raw_trip if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    if not clean_channel:
+        clean_channel = "Group"
+    if not clean_trip:
+        clean_trip = "Trip"
+    excel_filename = f"{clean_channel}-{clean_trip}.xlsx"
+
+    caption = t("export_caption", lang, trip_name=trip["name"])
+    await context.bot.send_document(
+        chat_id=chat_id,
+        document=excel_file,
+        filename=excel_filename,
+        caption=caption,
+        parse_mode="Markdown",
+    )
+
+    # 4. Deactivate trip in database
     await end_trip(db_path, trip["id"])
-    await reply_ephemeral(update, context, t("trip_ended", lang, name=trip["name"]))
+
+    # 5. Send trip ended farewell message
+    await context.bot.send_message(chat_id=chat_id, text=t("trip_ended", lang, name=trip["name"]), parse_mode="Markdown")
+
+    # 6. Leave the Telegram channel/group
+    try:
+        await context.bot.leave_chat(chat_id=chat_id)
+    except Exception as e:
+        logger.warning(f"Could not leave chat {chat_id}: {e}")
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
