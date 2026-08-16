@@ -126,60 +126,60 @@ STRINGS = {
         "fa": "وزن سهم خانواده‌تان را انتخاب کنید:\n(۱ بزرگسال = ۱، ۱ بچه = ۰.۵)",
     },
     "duplicate_contribution": {
-        "en": "⚠️ Duplicate! You already have a ${amount:.2f} contribution to Meal #{number}. Not added.",
-        "fa": "⚠️ تکراری! شما قبلاً ${amount:.2f} به وعده #{number} پرداخت کرده‌اید. اضافه نشد.",
+        "en": "⚠️ Duplicate! You already have a ${amount:.2f} contribution to Meal/Event #{number}. Not added.",
+        "fa": "⚠️ تکراری! شما قبلاً ${amount:.2f} به وعده/رویداد #{number} پرداخت کرده‌اید. اضافه نشد.",
     },
     "contribute_select_meal": {
-        "en": "Which meal do you want to contribute to?",
-        "fa": "به کدام وعده می‌خواهید پرداخت اضافه کنید؟",
+        "en": "Which meal/event do you want to contribute to?",
+        "fa": "به کدام وعده/رویداد می‌خواهید پرداخت اضافه کنید؟",
     },
     "contribute_ask_amount": {
         "en": "How much did you pay for #{number} {name}? (just type the number)",
         "fa": "چقدر برای #{number} {name} پرداخت کردید؟ (فقط عدد بزنید)",
     },
     "meal_logged": {
-        "en": "✅ Meal #{number} '{name}' (${amount:.2f}) logged by {family}",
-        "fa": "✅ وعده #{number} '{name}' (${amount:.2f}) توسط {family} ثبت شد",
+        "en": "✅ Meal/Event #{number} '{name}' (${amount:.2f}) logged by {family}",
+        "fa": "✅ وعده/رویداد #{number} '{name}' (${amount:.2f}) توسط {family} ثبت شد",
     },
     "meal_created": {
-        "en": "✅ Meal #{number} '{name}' created. Use /contribute {number} <amount> to add payments.",
-        "fa": "✅ وعده #{number} '{name}' ساخته شد. با /contribute {number} <مبلغ> پرداخت اضافه کنید.",
+        "en": "✅ Meal/Event #{number} '{name}' created. Use /contribute {number} <amount> to add payments.",
+        "fa": "✅ وعده/رویداد #{number} '{name}' ساخته شد. با /contribute {number} <مبلغ> پرداخت اضافه کنید.",
     },
     "meal_already_exists": {
-        "en": "ℹ️ Meal #{number} '{name}' already exists. Use /contribute {number} <amount> to add your payment.",
-        "fa": "ℹ️ وعده #{number} '{name}' قبلاً وجود دارد. با /contribute {number} <مبلغ> پرداختتان را اضافه کنید.",
+        "en": "ℹ️ Meal/Event #{number} '{name}' already exists. Use /contribute {number} <amount> to add your payment.",
+        "fa": "ℹ️ وعده/رویداد #{number} '{name}' قبلاً وجود دارد. با /contribute {number} <مبلغ> پرداختتان را اضافه کنید.",
     },
     "contribution_added": {
-        "en": "✅ {family} added ${amount:.2f} to Meal #{number} '{name}'\n📊 Total: ${total:.2f}",
-        "fa": "✅ {family} مبلغ ${amount:.2f} به وعده #{number} '{name}' اضافه کرد\n📊 جمع: ${total:.2f}",
+        "en": "✅ {family} added ${amount:.2f} to Meal/Event #{number} '{name}'\n📊 Total: ${total:.2f}",
+        "fa": "✅ {family} مبلغ ${amount:.2f} به وعده/رویداد #{number} '{name}' اضافه کرد\n📊 جمع: ${total:.2f}",
     },
     "meal_not_found": {
-        "en": "⚠️ Meal #{number} not found.",
-        "fa": "⚠️ وعده #{number} پیدا نشد.",
+        "en": "⚠️ Meal/Event #{number} not found.",
+        "fa": "⚠️ وعده/رویداد #{number} پیدا نشد.",
     },
     "skip_prompt": {
-        "en": "Which meal did your family skip?",
-        "fa": "خانواده شما کدام وعده را نخورد؟",
+        "en": "Which meal/event did your family skip?",
+        "fa": "خانواده شما کدام وعده/رویداد را نخورد؟",
     },
     "skip_confirmed": {
-        "en": "✅ {family} marked as absent from Meal #{number} '{name}'",
-        "fa": "✅ {family} از وعده #{number} '{name}' غایب ثبت شد",
+        "en": "✅ {family} marked as absent from Meal/Event #{number} '{name}'",
+        "fa": "✅ {family} از وعده/رویداد #{number} '{name}' غایب ثبت شد",
     },
     "skip_confirmed_with_grouping": {
-        "en": "✅ {family} marked absent from Meal #{number} '{name}'\n\n👥 *Updated Grouping for Meal #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
-        "fa": "✅ {family} از وعده #{number} '{name}' غایب ثبت شد\n\n👥 *گروه‌بندی به‌روزرسانی‌شده برای وعده #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
+        "en": "✅ {family} marked absent from Meal/Event #{number} '{name}'\n\n👥 *Updated Grouping for Meal/Event #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
+        "fa": "✅ {family} از وعده/رویداد #{number} '{name}' غایب ثبت شد\n\n👥 *گروه‌بندی به‌روزرسانی‌شده برای وعده/رویداد #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
     },
     "grouping_header": {
-        "en": "\n\n👥 *Active Grouping for Meal #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
-        "fa": "\n\n👥 *گروه‌بندی فعال برای وعده #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
+        "en": "\n\n👥 *Active Grouping for Meal/Event #{number} '{name}':*\n{members_list}\n📊 Total Group Weight: {total_weight}",
+        "fa": "\n\n👥 *گروه‌بندی فعال برای وعده/رویداد #{number} '{name}':*\n{members_list}\n📊 وزن کل گروه: {total_weight}",
     },
     "expense_logged": {
         "en": "✅ Shared expense '{description}' (${amount:.2f}) logged by {family}",
         "fa": "✅ هزینه مشترک '{description}' (${amount:.2f}) توسط {family} ثبت شد",
     },
     "settle_header": {
-        "en": "🏕 {trip_name} — Final Settlement\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 Summary:\n• {family_count} families, {meal_count} meals, {expense_count} shared expenses\n• Total spent: ${total_spent:.2f}",
-        "fa": "🏕 {trip_name} — تسویه نهایی\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 خلاصه:\n• {family_count} خانواده، {meal_count} وعده، {expense_count} هزینه مشترک\n• کل هزینه: ${total_spent:.2f}",
+        "en": "🏕 {trip_name} — Final Settlement\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 Summary:\n• {family_count} families, {meal_count} meals/events, {expense_count} shared expenses\n• Total spent: ${total_spent:.2f}",
+        "fa": "🏕 {trip_name} — تسویه نهایی\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 خلاصه:\n• {family_count} خانواده، {meal_count} وعده/رویداد، {expense_count} هزینه مشترک\n• کل هزینه: ${total_spent:.2f}",
     },
     "settle_transfers_header": {
         "en": "\n💰 Transfers needed ({count}):",
@@ -198,8 +198,8 @@ STRINGS = {
         "fa": "\n✅ حساب همه صاف است! نیازی به انتقال نیست.",
     },
     "nothing_to_settle": {
-        "en": "⚠️ Nothing to settle yet. Log some meals or expenses first.",
-        "fa": "⚠️ چیزی برای تسویه نیست. اول وعده یا هزینه ثبت کنید.",
+        "en": "⚠️ Nothing to settle yet. Log some meals/events or expenses first.",
+        "fa": "⚠️ چیزی برای تسویه نیست. اول وعده/رویداد یا هزینه ثبت کنید.",
     },
     "undo_success": {
         "en": "✅ Last action undone.",
@@ -210,24 +210,24 @@ STRINGS = {
         "fa": "⚠️ چیزی برای برگرداندن نیست.",
     },
     "meal_deleted": {
-        "en": "✅ Meal #{number} '{name}' deleted.",
-        "fa": "✅ وعده #{number} '{name}' حذف شد.",
+        "en": "✅ Meal/Event #{number} '{name}' deleted.",
+        "fa": "✅ وعده/رویداد #{number} '{name}' حذف شد.",
     },
     "meal_delete_denied": {
-        "en": "⚠️ Only the family who logged this meal can delete it.",
-        "fa": "⚠️ فقط خانواده\u200cای که این وعده را ثبت کرده می\u200cتواند حذفش کند.",
+        "en": "⚠️ Only the family who logged this meal/event can delete it.",
+        "fa": "⚠️ فقط خانوده‌ای که این وعده/رویداد را ثبت کرده می‌تواند حذفش کند.",
     },
     "meal_edited": {
-        "en": "✅ Your contribution to Meal #{number} updated to ${amount:.2f}",
-        "fa": "✅ سهم شما در وعده #{number} به ${amount:.2f} تغییر کرد",
+        "en": "✅ Your contribution to Meal/Event #{number} updated to ${amount:.2f}",
+        "fa": "✅ سهم شما در وعده/رویداد #{number} به ${amount:.2f} تغییر کرد",
     },
     "no_contribution_to_edit": {
-        "en": "⚠️ You haven't contributed to Meal #{number}.",
-        "fa": "⚠️ شما سهمی در وعده #{number} ندارید.",
+        "en": "⚠️ You haven't contributed to Meal/Event #{number}.",
+        "fa": "⚠️ شما سهمی در وعده/رویداد #{number} ندارید.",
     },
     "contribution_removed": {
-        "en": "✅ Your contribution to Meal #{number} '{name}' removed.",
-        "fa": "✅ سهم شما از وعده #{number} '{name}' حذف شد.",
+        "en": "✅ Your contribution to Meal/Event #{number} '{name}' removed.",
+        "fa": "✅ سهم شما از وعده/رویداد #{number} '{name}' حذف شد.",
     },
     "lang_switched": {
         "en": "✅ Language switched to English.",
@@ -324,8 +324,8 @@ STRINGS = {
         "fa": "  • {name} (وزن: {weight})",
     },
     "status_meals": {
-        "en": "\n🍽 *Meals ({count}):*",
-        "fa": "\n🍽 *وعده\u200cها ({count}):*",
+        "en": "\n🍽 *Meals/Events ({count}):*",
+        "fa": "\n🍽 *وعده‌ها/رویدادها ({count}):*",
     },
     "status_meal_item": {
         "en": "  #{number} {name} — ${total:.2f}",
@@ -337,7 +337,7 @@ STRINGS = {
     },
     "status_expenses": {
         "en": "\n💸 *Shared Expenses ({count}):*",
-        "fa": "\n💸 *هزینه\u200cهای مشترک ({count}):*",
+        "fa": "\n💸 *هزینه‌های مشترک ({count}):*",
     },
     "status_expense_item": {
         "en": "  • {description} — ${amount:.2f} (by {family})",
@@ -348,8 +348,8 @@ STRINGS = {
         "fa": "\n\n🏦 *وضعیت تراز مالی و بانک خانواده‌ها:*",
     },
     "status_no_data": {
-        "en": "\n_No meals or expenses logged yet._",
-        "fa": "\n_هنوز وعده یا هزینه‌ای ثبت نشده._",
+        "en": "\n_No meals/events or expenses logged yet._",
+        "fa": "\n_هنوز وعده/رویداد یا هزینه‌ای ثبت نشده._",
     },
     "my_share_header": {
         "en": "📊 *Personal Cost Share Breakdown — {family_name}*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👥 Your Share Weight: *{weight}*",
@@ -377,7 +377,7 @@ STRINGS = {
     },
     "group_only": {
         "en": "⚠️ This command works in group chats only.",
-        "fa": "⚠️ این دستور فقط در گروه کار می\u200cکند.",
+        "fa": "⚠️ این دستور فقط در گروه کار می‌کند.",
     },
     "reminder": {
         "en": (
@@ -386,30 +386,30 @@ STRINGS = {
             "({active}/{expected} families contributed so far)\n\n"
             "*Quick guide:*\n"
             "• `/join 2.5` — join with your family weight\n"
-            "• `/contribute 1 20` — add payment to meal #1\n"
-            "• `/skip` — mark absent from a meal\n"
+            "• `/contribute 1 20` — add payment to meal/event #1\n"
+            "• `/skip` — mark absent from a meal/event\n"
             "• `/expense Firewood 15` — log a shared expense\n\n"
             "_This message will auto-delete in 1 hour._"
         ),
         "fa": (
             "⏰ *یادآوری روزانه — {trip_name}*\n\n"
-            "هنوز همه خانواده\u200cها هزینه\u200cهایشان را ثبت نکرده\u200cاند! "
-            "({active}/{expected} خانواده تا الان ثبت کرده\u200cاند)\n\n"
+            "هنوز همه خانواده‌ها هزینه‌هایشان را ثبت نکرده‌اند! "
+            "({active}/{expected} خانواده تا الان ثبت کرده‌اند)\n\n"
             "*راهنمای سریع:*\n"
             "• `/join 2.5` — عضویت با وزن خانواده\n"
-            "• `/contribute 1 20` — اضافه کردن پرداخت به وعده ۱\n"
-            "• `/skip` — غیبت از یک وعده\n"
+            "• `/contribute 1 20` — اضافه کردن پرداخت به وعده/رویداد ۱\n"
+            "• `/skip` — غیبت از یک وعده/رویداد\n"
             "• `/expense هیزم 15` — ثبت هزینه مشترک\n\n"
-            "_این پیام بعد از ۱ ساعت حذف می\u200cشود._"
+            "_این پیام بعد از ۱ ساعت حذف می‌شود._"
         ),
     },
     "meals_header": {
-        "en": "🍽 *Meals — {trip_name}* ({count} total)",
-        "fa": "🍽 *وعده\u200cها — {trip_name}* ({count} عدد)",
+        "en": "🍽 *Meals/Events — {trip_name}* ({count} total)",
+        "fa": "🍽 *وعده‌ها/رویدادها — {trip_name}* ({count} عدد)",
     },
     "no_meals_yet": {
-        "en": "⚠️ No meals logged yet.",
-        "fa": "⚠️ هنوز وعده\u200cای ثبت نشده.",
+        "en": "⚠️ No meals/events logged yet.",
+        "fa": "⚠️ هنوز وعده/رویدادی ثبت نشده.",
     },
     "no_history": {
         "en": "⚠️ No past trips found.",

@@ -174,7 +174,7 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     for i, trip in enumerate(past_trips, 1):
         families = await get_families(db_path, trip["id"])
         meals = await get_meals(db_path, trip["id"])
-        text += f"\n  {i}. {trip['name']} — {len(families)} families, {len(meals)} meals"
+        text += f"\n  {i}. {trip['name']} — {len(families)} families, {len(meals)} meals/events"
 
     text += t("history_hint", lang)
     await reply_ephemeral(update, context, text)
