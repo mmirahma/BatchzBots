@@ -188,6 +188,8 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_lang":
             from bot.handlers.utility import prompt_lang_preset
             await prompt_lang_preset(update, context)
+        elif data == "menu_open":
+            await menu_handler(update, context)
     except BadRequest as e:
         if "Message is not modified" in str(e):
             pass
