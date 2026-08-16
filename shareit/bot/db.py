@@ -486,3 +486,60 @@ async def get_meal_by_name(db_path: str, trip_id: int, name: str) -> dict | None
             row = await cursor.fetchone()
             return dict(row) if row else None
 
+
+async def get_family_expenses(db_path: str, trip_id: int, family_id: int) -> list[dict]:
+    """Get all meal contributions and general shared expenses paid by a specific family in a trip."""
+    results = []
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        # 1. Meal contributions
+        async with db.execute(
+            "SELECT mc.id as item_id, mc.amount, m.meal_number, m.name as item_name, mc.meal_id, 'meal' as type "
+            "FROM meal_contributions mc "
+            "JOIN meals m ON mc.meal_id = m.id "
+            "WHERE m.trip_id = ? AND mc.family_id = ? ORDER BY m.meal_number ASC",
+            (trip_id, family_id),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append(dict(row))
+
+        # 2. General shared expenses
+        async with db.execute(
+            "SELECT se.id as item_id, se.amount, se.description as item_name, 'expense' as type "
+            "FROM shared_expenses se "
+            "WHERE se.trip_id = ? AND se.family_id = ? ORDER BY se.id ASC",
+            (trip_id, family_id),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append(dict(row))
+
+    return results
+
+
+async def update_shared_expense_amount(db_path: str, expense_id: int, amount: float) -> None:
+    """Update amount of a general shared expense."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE shared_expenses SET amount = ? WHERE id = ?", (amount, expense_id))
+        await db.commit()
+
+
+async def delete_shared_expense(db_path: str, expense_id: int) -> None:
+    """Delete a general shared expense."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("DELETE FROM shared_expenses WHERE id = ?", (expense_id,))
+        await db.commit()
+
+
+async def delete_meal_contribution_by_id(db_path: str, contribution_id: int) -> None:
+    """Delete a specific meal contribution by ID."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("DELETE FROM meal_contributions WHERE id = ?", (contribution_id,))
+        await db.commit()
+
+
+async def update_meal_contribution_amount_by_id(db_path: str, contribution_id: int, amount: float) -> None:
+    """Update amount of a meal contribution by ID."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE meal_contributions SET amount = ? WHERE id = ?", (amount, contribution_id))
+        await db.commit()
+

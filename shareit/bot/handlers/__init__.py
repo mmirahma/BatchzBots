@@ -20,6 +20,13 @@ from bot.handlers.utility import lang_handler, help_handler, lang_callback_handl
 from bot.handlers.info import meals_handler, history_handler, my_share_handler
 
 
+from bot.handlers.edit_expenses import (
+    edit_my_expenses_handler,
+    edit_expense_select_callback_handler,
+    edit_expense_action_callback_handler,
+)
+
+
 def register_handlers(app: Application) -> None:
     """Register all command and callback handlers."""
     app.add_handler(CommandHandler("menu", menu_handler))
@@ -32,6 +39,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("contribute", contribute_handler))
     app.add_handler(CommandHandler("skip", skip_handler))
     app.add_handler(CommandHandler("expense", expense_handler))
+    app.add_handler(CommandHandler("editmyexpenses", edit_my_expenses_handler))
     app.add_handler(CommandHandler("settle", settle_handler))
     app.add_handler(CommandHandler("meals", meals_handler))
     app.add_handler(CommandHandler("myshare", my_share_handler))
@@ -55,6 +63,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(expense_menu_callback_handler, pattern=r"^exp_"))
     app.add_handler(CallbackQueryHandler(expense_preset_callback_handler, pattern=r"^pexp_"))
     app.add_handler(CallbackQueryHandler(expense_amount_callback_handler, pattern=r"^pexpamt_"))
+    app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
+    app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
     app.add_handler(CallbackQueryHandler(export_handler, pattern=r"^export_excel$"))
 

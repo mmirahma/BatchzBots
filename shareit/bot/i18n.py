@@ -8,6 +8,29 @@ STRINGS = {
     "btn_join": {"en": "➕ Join Trip", "fa": "➕ عضویت در سفر"},
     "btn_status": {"en": "🏕 Status", "fa": "🏕 خلاصه سفر"},
     "btn_log_expense": {"en": "💸 Log Expense", "fa": "💸 ثبت هزینه"},
+    "btn_edit_my_expenses": {"en": "✏️ Edit My Expenses", "fa": "✏️ ویرایش هزینه‌های من"},
+    "no_expenses_to_edit": {
+        "en": "⚠️ You haven't logged any expenses yet in this trip.",
+        "fa": "⚠️ شما هنوز هیچ هزینه‌ای در این سفر ثبت نکرده‌اید.",
+    },
+    "edit_expenses_title": {
+        "en": "✏️ *Edit Your Logged Expenses*\n\nSelect an expense below to edit its amount or delete it:",
+        "fa": "✏️ *ویرایش هزینه‌های ثبت شده شما*\n\nبرای ویرایش یا حذف، یک هزینه را از زیر انتخاب کنید:",
+    },
+    "edit_expense_prompt": {
+        "en": "✏️ *Editing: {name}*\n💰 Current Amount: *${amount:.2f}*\n\nSelect new amount below or type a number:",
+        "fa": "✏️ *ویرایش: {name}*\n💰 مبلغ فعلی: *${amount:.2f}*\n\nمبلغ جدید را از زیر انتخاب کنید یا یک عدد تایپ کنید:",
+    },
+    "btn_delete_expense": {"en": "❌ Delete Expense", "fa": "❌ حذف هزینه"},
+    "btn_back_to_list": {"en": "🔙 Back to Expenses", "fa": "🔙 بازگشت به لیست هزینه‌ها"},
+    "expense_updated": {
+        "en": "✅ Updated '{name}' to ${amount:.2f}",
+        "fa": "✅ مبلغ '{name}' به ${amount:.2f} ویرایش شد",
+    },
+    "expense_deleted": {
+        "en": "✅ Deleted '{name}'.",
+        "fa": "✅ هزینه '{name}' حذف شد.",
+    },
     "btn_log_meal": {"en": "🍽 Log Meal/Event", "fa": "🍽 ثبت وعده/رویداد"},
     "btn_contribute": {"en": "💳 Contribute", "fa": "💳 اضافه پرداخت"},
     "btn_add_meal": {"en": "➕ Add New Meal/Event", "fa": "➕ اضافه کردن وعده/رویداد جدید"},

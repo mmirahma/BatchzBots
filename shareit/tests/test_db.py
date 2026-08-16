@@ -178,3 +178,42 @@ async def test_groupings_and_associations(db_path):
     m2_final = next(m for m in members_final if m["family_id"] == f2)
     assert m2_final["is_active"] == 1
 
+
+@pytest.mark.asyncio
+async def test_edit_my_expenses_db_helpers(db_path):
+    from bot.db import (
+        get_family_expenses, update_shared_expense_amount, delete_shared_expense,
+        delete_meal_contribution_by_id, update_meal_contribution_amount_by_id,
+        get_meal_contributions, get_shared_expenses
+    )
+    trip_id = await create_trip(db_path, "Trip Expenses Test", chat_id=200)
+    f1 = await add_family(db_path, trip_id, "Maysam", 2.0, telegram_user_id=10)
+    meal_id = await add_meal(db_path, trip_id, "Breakfast", f1, 40.0)
+    exp_id = await add_shared_expense(db_path, trip_id, f1, "Firewood", 30.0)
+
+    my_expenses = await get_family_expenses(db_path, trip_id, f1)
+    assert len(my_expenses) == 2
+
+    # Edit shared expense
+    await update_shared_expense_amount(db_path, exp_id, 45.0)
+    my_expenses_updated = await get_family_expenses(db_path, trip_id, f1)
+    se_item = next(e for e in my_expenses_updated if e["type"] == "expense")
+    assert se_item["amount"] == 45.0
+
+    # Delete shared expense
+    await delete_shared_expense(db_path, exp_id)
+    my_expenses_after_del = await get_family_expenses(db_path, trip_id, f1)
+    assert len(my_expenses_after_del) == 1
+
+    # Edit meal contribution
+    mc_item = my_expenses_after_del[0]
+    mc_id = mc_item["item_id"]
+    await update_meal_contribution_amount_by_id(db_path, mc_id, 50.0)
+    conts = await get_meal_contributions(db_path, meal_id)
+    assert conts[0]["amount"] == 50.0
+
+    # Delete meal contribution
+    await delete_meal_contribution_by_id(db_path, mc_id)
+    conts_after = await get_meal_contributions(db_path, meal_id)
+    assert len(conts_after) == 0
+

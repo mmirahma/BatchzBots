@@ -14,9 +14,10 @@ def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboar
         keyboard = [[KeyboardButton(t("btn_join", lang))]]
     else:
         keyboard = [
-            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_my_share", lang))],
-            [KeyboardButton(t("btn_meals", lang)), KeyboardButton(t("btn_status", lang))],
-            [KeyboardButton(t("btn_settle", lang)), KeyboardButton(t("btn_lang", lang))],
+            [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_edit_my_expenses", lang))],
+            [KeyboardButton(t("btn_my_share", lang)), KeyboardButton(t("btn_meals", lang))],
+            [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
+            [KeyboardButton(t("btn_lang", lang))],
         ]
     return ReplyKeyboardMarkup(
         keyboard,
@@ -98,8 +99,12 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     btn_join_en = t("btn_join", "en")
     btn_join_fa = t("btn_join", "fa")
 
+    btn_edit_my_expenses_en = t("btn_edit_my_expenses", "en")
+    btn_edit_my_expenses_fa = t("btn_edit_my_expenses", "fa")
+
     is_button = text in (
         btn_expense_en, btn_expense_fa,
+        btn_edit_my_expenses_en, btn_edit_my_expenses_fa,
         btn_my_share_en, btn_my_share_fa,
         btn_skip_en, btn_skip_fa,
         btn_meals_en, btn_meals_fa,
@@ -115,6 +120,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         or context.user_data.get("pending_expense_desc")
         or context.user_data.get("pending_expense_category")
         or context.user_data.get("pending_contribute")
+        or context.user_data.get("pending_edit_expense")
     )
 
     if not is_button and not has_pending_input:
@@ -127,6 +133,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if text in (btn_expense_en, btn_expense_fa):
         from bot.handlers.expense import prompt_expense_preset
         await prompt_expense_preset(update, context)
+    elif text in (btn_edit_my_expenses_en, btn_edit_my_expenses_fa):
+        from bot.handlers.edit_expenses import edit_my_expenses_handler
+        await edit_my_expenses_handler(update, context)
     elif text in (btn_my_share_en, btn_my_share_fa):
         from bot.handlers.info import my_share_handler
         await my_share_handler(update, context)
@@ -149,7 +158,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from bot.handlers.family import join_handler
         await join_handler(update, context)
     else:
-        # Pass through to other text input handlers (e.g. pending meal description / amount)
+        from bot.handlers.edit_expenses import pending_edit_expense_text_handler
+        if await pending_edit_expense_text_handler(update, context):
+            return
         from bot.handlers.meal import contribute_amount_handler
         await contribute_amount_handler(update, context)
 
