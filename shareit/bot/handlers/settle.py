@@ -62,6 +62,38 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
              expense_count=len(expenses),
              total_spent=result.total_spent)
 
+    # Bank Status & Visual Bar Graph Section
+    if families:
+        from telegram.helpers import escape_markdown
+        esc = lambda s: escape_markdown(str(s), version=1)
+
+        balances = result.balances
+        max_abs = max((abs(b) for b in balances.values()), default=0.0)
+
+        text += t("status_bank_header", lang)
+        BAR_LEN = 8
+        for f in families:
+            bal = round(balances.get(f["id"], 0.0), 2)
+            fname = esc(f["name"])
+
+            if abs(bal) < 0.01:
+                bar = "▒" * BAR_LEN
+                text += f"\n  • {fname}: ⚪ $0.00 `[{bar}]`"
+            elif bal > 0:
+                ratio = min(bal / max_abs, 1.0) if max_abs > 0 else 1.0
+                filled = max(1, int(round(ratio * BAR_LEN)))
+                empty = BAR_LEN - filled
+                bar = "🟩" * filled + "▒" * empty
+                text += f"\n  • {fname}: 🟢 +${bal:.2f} `[{bar}]`"
+            else:
+                abs_b = abs(bal)
+                ratio = min(abs_b / max_abs, 1.0) if max_abs > 0 else 1.0
+                filled = max(1, int(round(ratio * BAR_LEN)))
+                empty = BAR_LEN - filled
+                bar = "🟥" * filled + "▒" * empty
+                text += f"\n  • {fname}: 🔴 -${abs_b:.2f} `[{bar}]`"
+        text += "\n"
+
     if result.transfers:
         text += t("settle_transfers_header", lang, count=len(result.transfers))
         for i, transfer in enumerate(result.transfers, 1):
