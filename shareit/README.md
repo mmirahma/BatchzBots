@@ -37,14 +37,14 @@ python -m bot.main
 
 ### Deployment (systemd)
 
-1. Copy `bachztab.service` to `/etc/systemd/system/`
+1. Copy `BachzTab.service` to `/etc/systemd/system/`
 2. Edit the service file with your paths and token
 3. Enable and start:
 
 ```bash
-sudo systemctl enable bachztab
-sudo systemctl start bachztab
-sudo systemctl status bachztab
+sudo systemctl enable BachzTab
+sudo systemctl start BachzTab
+sudo systemctl status BachzTab
 ```
 
 ## Usage

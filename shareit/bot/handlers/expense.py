@@ -293,7 +293,7 @@ async def prompt_general_expense_categories(update: Update, context: ContextType
     chat_id = update.effective_chat.id
 
     context.user_data["pending_expense_prompt"] = {
-        "category": "General",
+        "category": "Custom",
         "chat_id": chat_id,
         "timestamp": _time.time(),
     }

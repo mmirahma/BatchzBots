@@ -493,8 +493,17 @@ AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
 
 async def prompt_meal_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Prompt user with meal name preset buttons."""
+    import time as _time
     from bot.handlers._helpers import get_lang
     lang = await get_lang(update, context)
+    chat_id = update.effective_chat.id
+
+    context.user_data["pending_meal_desc"] = {
+        "category": "Custom",
+        "chat_id": chat_id,
+        "timestamp": _time.time(),
+    }
+
     buttons = [
         [InlineKeyboardButton(label, callback_data=cb) for label, cb in row]
         for row in MEAL_PRESETS
