@@ -258,7 +258,7 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         table_rows.append((e["description"], amt, pct, my_share))
 
     if table_rows:
-        text += "\n\n```text\n"
+        text += "\n\n```\n"
         text += f"{'Item / Event':<18} {'Total':>8} {'Pct':>6} {'Your Share':>9}\n"
         text += "─" * 43 + "\n"
         for item, total, pct, share in table_rows:
