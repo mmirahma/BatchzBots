@@ -81,24 +81,30 @@ STRINGS = {
         "fa": "🪵 هزینه عمومی (هیزم، ورودی، بنزین و...)",
     },
     "btn_targeted_expense": {
-        "en": "🎯 Specific Family Expense (Paid for specific member)",
-        "fa": "🎯 هزینه اختصاصی (پرداخت شده برای شخص/خانواده خاص)",
+        "en": "🎯 Custom-Weighted / Specific Family Expense",
+        "fa": "🎯 هزینه اختصاصی / سهم‌بندی سفارشی خانواده‌ها",
     },
     "targeted_ask_desc": {
-        "en": "🎯 *Specific Family Expense*\n\nPlease type the description for this expense (e.g., *Medicine*, *Souvenir*):",
-        "fa": "🎯 *هزینه اختصاصی برای شخص/خانواده خاص*\n\nلطفاً توضیحات این هزینه را تایپ کنید (مثلاً *دارو*، *سوغات*):",
+        "en": "🎯 *Custom Multi-Family Expense*\n\nPlease type the description for this expense (e.g., *Boat Rental*, *Cab Driver*, *Gifts*):",
+        "fa": "🎯 *هزینه اختصاصی با سهم‌بندی سفارشی*\n\nلطفاً توضیحات این هزینه را تایپ کنید (مثلاً *اجاره قایق*، *تاکسی*، *هدیه*):",
     },
     "targeted_ask_amount": {
         "en": "💰 *Amount for '{desc}'*\n\nSelect payment amount below or type a custom number in chat:",
         "fa": "💰 *مبلغ برای '{desc}'*\n\nمبلغ پرداخت را از دکمه‌های زیر انتخاب کنید یا یک عدد تایپ کنید:",
     },
-    "targeted_select_family": {
-        "en": "🎯 *Select Beneficiary Family*\n\nWho was '{desc}' (${amount:.2f}) bought for?",
-        "fa": "🎯 *انتخاب خانواده ذینفع*\n\nهزینه '{desc}' (${amount:.2f}) برای چه کسی پرداخت شده است؟",
+    "targeted_setup_title": {
+        "en": "🎯 *Custom Expense Share Setup — {desc} (${amount:.2f})*\n\nTap any family below to adjust their share weight or exclude them:",
+        "fa": "🎯 *تنظیم سهم‌بندی سفارشی — {desc} (${amount:.2f})*\n\nبرای تغییر وزن سهم یا حذف، روی خانواده مورد نظر کلیک کنید:",
     },
-    "targeted_logged": {
-        "en": "✅ *Targeted Expense Logged!*\n\n📝 Item: *{desc}*\n💰 Amount: *${amount:.2f}*\n💳 Paid by: *{payer}*\n🎯 Beneficiary: *{target}*",
-        "fa": "✅ *هزینه اختصاصی ثبت شد!*\n\n📝 عنوان: *{desc}*\n💰 مبلغ: *${amount:.2f}*\n💳 پرداخت‌کننده: *{payer}*\n🎯 ذینفع: *{target}*",
+    "targeted_set_weight_title": {
+        "en": "👥 *Select Share Weight for {family_name}* (Current: {weight}):",
+        "fa": "👥 *انتخاب وزن سهم برای {family_name}* (فعلی: {weight}):",
+    },
+    "btn_exclude_family": {"en": "🚫 Exclude / Skip", "fa": "🚫 حذف / غایب"},
+    "btn_save_expense": {"en": "✅ Save & Log Expense", "fa": "✅ ثبت نهایی هزینه"},
+    "targeted_logged_summary": {
+        "en": "✅ *Custom Expense Logged!*\n\n📝 Item: *{desc}*\n💰 Amount: *${amount:.2f}*\n💳 Paid by: *{payer}*\n\n👥 *Cost Share Breakdown:*\n{breakdown}",
+        "fa": "✅ *هزینه سفارشی ثبت شد!*\n\n📝 عنوان: *{desc}*\n💰 مبلغ: *${amount:.2f}*\n💳 پرداخت‌کننده: *{payer}*\n\n👥 *توزیع سهم هزینه‌ها:*\n{breakdown}",
     },
     "expense_ask_desc": {
         "en": "💸 *{category} Selected*\n\nSelect payment amount below or type a custom number in chat:",

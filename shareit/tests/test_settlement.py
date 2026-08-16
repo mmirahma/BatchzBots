@@ -131,3 +131,24 @@ def test_targeted_expense_settlement():
     assert result.transfers[0].to_family_id == 1
     assert result.transfers[0].amount == pytest.approx(60.0)
 
+
+def test_custom_weighted_multi_family_expense():
+    """Test expense paid by Family A ($100), split between Family A (w=3.0) and Family C (w=1.0), Family B excluded."""
+    families = [make_family(1, "A", 2.0), make_family(2, "B", 2.0), make_family(3, "C", 2.0)]
+    shared_expenses = [{"id": 60, "family_id": 1, "description": "Boat Rental", "amount": 100.0}]
+    expense_groupings = {
+        60: [
+            {"family_id": 1, "weight": 3.0, "is_active": 1},
+            {"family_id": 2, "weight": 0.0, "is_active": 0},
+            {"family_id": 3, "weight": 1.0, "is_active": 1},
+        ]
+    }
+    result = calculate_settlement(
+        families, [], {}, {}, shared_expenses, expense_groupings=expense_groupings
+    )
+    assert result.total_spent == 100.0
+    assert len(result.transfers) == 1
+    assert result.transfers[0].from_family_id == 3  # Family C owes Family A
+    assert result.transfers[0].to_family_id == 1
+    assert result.transfers[0].amount == pytest.approx(25.0)
+

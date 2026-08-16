@@ -63,7 +63,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(expense_menu_callback_handler, pattern=r"^exp_"))
     app.add_handler(CallbackQueryHandler(expense_preset_callback_handler, pattern=r"^pexp_"))
     app.add_handler(CallbackQueryHandler(expense_amount_callback_handler, pattern=r"^pexpamt_"))
-    app.add_handler(CallbackQueryHandler(targeted_expense_family_callback_handler, pattern=r"^ptargetfam_"))
+    app.add_handler(CallbackQueryHandler(targeted_expense_family_callback_handler, pattern=r"^(ptargetfam_|ptgtfam_|ptgtsetw_|ptgt_save)"))
     app.add_handler(CallbackQueryHandler(targeted_amount_callback_handler, pattern=r"^ptgtamt_"))
     app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))

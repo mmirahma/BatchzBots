@@ -107,7 +107,7 @@ async def prompt_targeted_expense_desc(update: Update, context: ContextTypes.DEF
 
 
 async def prompt_targeted_expense_family(update: Update, context: ContextTypes.DEFAULT_TYPE, desc: str, amount: float) -> None:
-    """Show list of families to select beneficiary for targeted expense."""
+    """Show interactive list of families with weights to configure custom expense allocation."""
     from bot.db import get_active_trip, get_families
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
@@ -118,18 +118,29 @@ async def prompt_targeted_expense_family(update: Update, context: ContextTypes.D
         return
     families = await get_families(db_path, trip["id"])
 
+    # Initialize weights dictionary in user_data if not set yet
+    if "pending_targeted_expense_weights" not in context.user_data or context.user_data.get("pending_targeted_desc") != desc:
+        context.user_data["pending_targeted_desc"] = desc
+        context.user_data["pending_targeted_amount"] = amount
+        # By default, all families participate with their default trip weight
+        context.user_data["pending_targeted_expense_weights"] = {f["id"]: f["weight"] for f in families}
+
+    weights_map = context.user_data["pending_targeted_expense_weights"]
+
     buttons = []
     for f in families:
-        cb_data = f"ptargetfam_{f['id']}"
-        buttons.append([InlineKeyboardButton(f"👤 {f['name']}", callback_data=cb_data)])
+        fid = f["id"]
+        w = weights_map.get(fid, f["weight"])
+        if w > 0:
+            label = f"✅ {f['name']} (w={w})"
+        else:
+            label = f"🚫 {f['name']} (Excluded)"
+        cb_data = f"ptgtfam_{fid}"
+        buttons.append([InlineKeyboardButton(label, callback_data=cb_data)])
 
-    context.user_data["pending_targeted_expense_data"] = {
-        "desc": desc,
-        "amount": amount,
-        "chat_id": chat_id,
-    }
+    buttons.append([InlineKeyboardButton(t("btn_save_expense", lang), callback_data="ptgt_save")])
 
-    msg_text = t("targeted_select_family", lang, desc=desc, amount=amount)
+    msg_text = t("targeted_setup_title", lang, desc=desc, amount=amount)
     if update.callback_query:
         await update.callback_query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
     else:
@@ -137,54 +148,117 @@ async def prompt_targeted_expense_family(update: Update, context: ContextTypes.D
 
 
 async def targeted_expense_family_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle selection of beneficiary family for targeted expense."""
+    """Handle clicking on a family button to open weight adjustment menu or save expense."""
     query = update.callback_query
     await query.answer()
 
     data = query.data
-    target_fid = int(data.replace("ptargetfam_", ""))
-
-    pending_data = context.user_data.pop("pending_targeted_expense_data", None)
-    if not pending_data:
-        return
-
-    desc = pending_data["desc"]
-    amount = pending_data["amount"]
-
-    from bot.db import (
-        get_active_trip, get_family, get_families,
-        create_grouping, add_or_update_grouping_member, add_shared_expense
-    )
+    lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    lang = await get_lang(update, context)
 
-    trip = await get_active_trip(db_path, chat_id)
-    if not trip:
+    if data == "ptgt_save":
+        # Save the expense with custom weights
+        desc = context.user_data.get("pending_targeted_desc", "Custom Expense")
+        amount = context.user_data.get("pending_targeted_amount", 0.0)
+        weights_map = context.user_data.pop("pending_targeted_expense_weights", {})
+        context.user_data.pop("pending_targeted_desc", None)
+        context.user_data.pop("pending_targeted_amount", None)
+
+        from bot.db import (
+            get_active_trip, get_family, get_families,
+            create_grouping, add_or_update_grouping_member, add_shared_expense
+        )
+        trip = await get_active_trip(db_path, chat_id)
+        if not trip:
+            return
+        payer_family = await get_family(db_path, trip["id"], user_id)
+        if not payer_family:
+            return
+        families = await get_families(db_path, trip["id"])
+
+        # Check active members
+        active_fids = [fid for fid, w in weights_map.items() if w > 0]
+        if not active_fids:
+            await query.edit_message_text("⚠️ At least one family must be included in the expense!")
+            return
+
+        # Create grouping and set custom weights
+        grouping_id = await create_grouping(db_path, trip["id"], f"Custom Expense: {desc}")
+        total_w = sum(weights_map[fid] for fid in active_fids)
+        breakdown_lines = []
+
+        for f in families:
+            fid = f["id"]
+            w = weights_map.get(fid, 0.0)
+            if w > 0:
+                await add_or_update_grouping_member(db_path, grouping_id, fid, weight=w, is_active=1)
+                cost_share = amount * (w / total_w)
+                breakdown_lines.append(f"• *{f['name']}* (w={w}): *${cost_share:.2f}*")
+            else:
+                await add_or_update_grouping_member(db_path, grouping_id, fid, weight=0.0, is_active=0)
+                breakdown_lines.append(f"• *{f['name']}*: 🚫 Skipped ($0.00)")
+
+        expense_id = await add_shared_expense(
+            db_path, trip["id"], payer_family["id"], desc, amount, grouping_id=grouping_id
+        )
+
+        context.user_data["last_action"] = {"type": "expense", "expense_id": expense_id, "trip_id": trip["id"]}
+        breakdown_str = "\n".join(breakdown_lines)
+        await query.edit_message_text(
+            t("targeted_logged_summary", lang, desc=desc, amount=amount, payer=payer_family["name"], breakdown=breakdown_str),
+            parse_mode="Markdown",
+        )
         return
-    payer_family = await get_family(db_path, trip["id"], user_id)
-    if not payer_family:
+
+    if data.startswith("ptgtfam_"):
+        target_fid = int(data.replace("ptargetfam_", "").replace("ptgtfam_", ""))
+        from bot.db import get_active_trip, get_families
+        trip = await get_active_trip(db_path, chat_id)
+        families = await get_families(db_path, trip["id"]) if trip else []
+        target_family = next((f for f in families if f["id"] == target_fid), None)
+        if not target_family:
+            return
+
+        weights_map = context.user_data.get("pending_targeted_expense_weights", {})
+        curr_w = weights_map.get(target_fid, target_family["weight"])
+
+        # Display weight choice buttons for this family
+        WEIGHT_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = f"{w}" if w != int(w) else f"{int(w)}"
+            if w == curr_w:
+                label = f"✅ {label}"
+            cb_data = f"ptgtsetw_{target_fid}_{w}"
+            row.append(InlineKeyboardButton(label, callback_data=cb_data))
+            if len(row) == 4:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        # Add Exclude button
+        buttons.append([InlineKeyboardButton(t("btn_exclude_family", lang), callback_data=f"ptgtsetw_{target_fid}_0.0")])
+
+        msg_text = t("targeted_set_weight_title", lang, family_name=target_family["name"], weight=curr_w)
+        await query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
         return
 
-    families = await get_families(db_path, trip["id"])
-    target_family = next((f for f in families if f["id"] == target_fid), None)
-    if not target_family:
-        return
+    if data.startswith("ptgtsetw_"):
+        parts = data.split("_")
+        target_fid = int(parts[1])
+        new_w = float(parts[2])
 
-    # Create custom grouping for targeted beneficiary
-    grouping_id = await create_grouping(db_path, trip["id"], f"Targeted: {desc}")
-    await add_or_update_grouping_member(db_path, grouping_id, target_fid, weight=target_family["weight"], is_active=1)
+        if "pending_targeted_expense_weights" not in context.user_data:
+            context.user_data["pending_targeted_expense_weights"] = {}
+        context.user_data["pending_targeted_expense_weights"][target_fid] = new_w
 
-    expense_id = await add_shared_expense(
-        db_path, trip["id"], payer_family["id"], desc, amount, grouping_id=grouping_id
-    )
-
-    context.user_data["last_action"] = {"type": "expense", "expense_id": expense_id, "trip_id": trip["id"]}
-    await query.edit_message_text(
-        t("targeted_logged", lang, desc=desc, amount=amount, payer=payer_family["name"], target=target_family["name"]),
-        parse_mode="Markdown",
-    )
+        desc = context.user_data.get("pending_targeted_desc", "Custom Expense")
+        amount = context.user_data.get("pending_targeted_amount", 0.0)
+        await prompt_targeted_expense_family(update, context, desc, amount)
 
 
 async def targeted_amount_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
