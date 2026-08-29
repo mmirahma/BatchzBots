@@ -588,6 +588,12 @@ async def save_chat_member(
 ) -> None:
     """Record or update a seen group chat member."""
     async with aiosqlite.connect(db_path) as db:
+        if username and telegram_user_id > 0:
+            # If there was a placeholder negative ID entry for this username, remove it
+            await db.execute(
+                "DELETE FROM chat_members WHERE chat_id = ? AND LOWER(username) = LOWER(?) AND telegram_user_id < 0",
+                (chat_id, username),
+            )
         await db.execute(
             "INSERT INTO chat_members (chat_id, telegram_user_id, name, username, last_seen) "
             "VALUES (?, ?, ?, ?, datetime('now')) "

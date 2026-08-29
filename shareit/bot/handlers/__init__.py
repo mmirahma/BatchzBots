@@ -1,7 +1,10 @@
-"""Register all command handlers with the bot application."""
+from telegram import Update
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, MessageHandler,
+    ChatMemberHandler, TypeHandler, filters,
+)
 
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-
+from bot.handlers._helpers import record_user_activity
 from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler, admin_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler, resumetrip_handler
 from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
@@ -37,6 +40,11 @@ from bot.handlers.edit_expenses import (
 
 def register_handlers(app: Application) -> None:
     """Register all command and callback handlers."""
+    # Group -1: Global silent recorder capturing users from any update (messages, mentions, replies, joins)
+    app.add_handler(TypeHandler(Update, record_user_activity), group=-1)
+    app.add_handler(ChatMemberHandler(record_user_activity, ChatMemberHandler.CHAT_MEMBER), group=-1)
+    app.add_handler(ChatMemberHandler(record_user_activity, ChatMemberHandler.MY_CHAT_MEMBER), group=-1)
+
     app.add_handler(CommandHandler("menu", menu_handler))
     app.add_handler(CommandHandler("start", menu_handler))
     app.add_handler(CommandHandler("admin", admin_menu_handler))

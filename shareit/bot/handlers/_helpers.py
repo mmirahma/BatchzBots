@@ -38,18 +38,83 @@ def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT
 
 
 async def record_user_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Record active Telegram user as a known group chat member in database."""
-    user = update.effective_user
-    chat = update.effective_chat
+    """Record active, mentioned, replied, forwarded, or joined Telegram users as known group members."""
     db_path = context.bot_data.get("db_path") if context and context.bot_data else None
-    if user and chat and db_path and not user.is_bot and chat.type in ("group", "supergroup"):
-        from bot.db import save_chat_member
-        name = user.full_name or user.first_name or "User"
-        username = user.username
+    if not db_path:
+        return
+
+    chat = update.effective_chat
+    if not chat or chat.type not in ("group", "supergroup"):
+        return
+
+    from bot.db import save_chat_member, get_known_chat_members
+
+    bot_id = context.bot.id if context and context.bot else 0
+    bot_uname = (context.bot.username or "").lower() if context and context.bot else ""
+
+    async def _save(uid: int, full_name: str, username: str | None = None):
+        if not uid or uid == bot_id:
+            return
+        name = full_name.strip() if full_name else (f"@{username}" if username else f"User #{uid}")
         try:
-            await save_chat_member(db_path, chat.id, user.id, name, username)
+            await save_chat_member(db_path, chat.id, uid, name, username)
         except Exception as e:
-            logger.warning(f"Failed to record chat member {user.id} in chat {chat.id}: {e}")
+            logger.warning(f"Failed to record chat member {uid} in chat {chat.id}: {e}")
+
+    # 1. Message sender / callback query user
+    user = update.effective_user
+    if user and not user.is_bot:
+        await _save(user.id, user.full_name or user.first_name, user.username)
+
+    message = update.effective_message
+    if message:
+        # 2. Replied-to user (e.g. admin replies to an inactive member's message)
+        if message.reply_to_message and message.reply_to_message.from_user:
+            rep_user = message.reply_to_message.from_user
+            if not rep_user.is_bot:
+                await _save(rep_user.id, rep_user.full_name or rep_user.first_name, rep_user.username)
+
+        # 3. Forwarded user (e.g. admin forwards a message from a member)
+        if message.forward_from and not message.forward_from.is_bot:
+            fwd_user = message.forward_from
+            await _save(fwd_user.id, fwd_user.full_name or fwd_user.first_name, fwd_user.username)
+
+        # 4. New chat members (users who joined or were added to group)
+        if message.new_chat_members:
+            for new_user in message.new_chat_members:
+                if not new_user.is_bot:
+                    await _save(new_user.id, new_user.full_name or new_user.first_name, new_user.username)
+
+        # 5. Tagged / Mentioned users in text or caption
+        entities = list(message.entities or ()) + list(message.caption_entities or ())
+        text = message.text or message.caption or ""
+        for entity in entities:
+            # 5a. Direct text mention with embedded User object
+            if entity.type == "text_mention" and getattr(entity, "user", None):
+                m_user = entity.user
+                if not m_user.is_bot:
+                    await _save(m_user.id, m_user.full_name or m_user.first_name, m_user.username)
+            # 5b. Username mention @username
+            elif entity.type == "mention" and text:
+                uname = text[entity.offset:entity.offset + entity.length].lstrip("@").strip()
+                if uname and uname.lower() != bot_uname:
+                    placeholder_uid = -(abs(hash(uname.lower())) % 900000 + 100000)
+                    try:
+                        known_members = await get_known_chat_members(db_path, chat.id)
+                        already_known = any(
+                            (m.get("username") or "").lower() == uname.lower() and m["telegram_user_id"] > 0
+                            for m in known_members
+                        )
+                        if not already_known:
+                            await _save(placeholder_uid, f"@{uname}", uname)
+                    except Exception as e:
+                        logger.warning(f"Failed to record mention @{uname}: {e}")
+
+    # 6. ChatMemberUpdated updates
+    if update.chat_member and update.chat_member.new_chat_member:
+        cm_user = update.chat_member.new_chat_member.user
+        if cm_user and not cm_user.is_bot:
+            await _save(cm_user.id, cm_user.full_name or cm_user.first_name, cm_user.username)
 
 
 async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:

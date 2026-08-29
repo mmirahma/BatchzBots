@@ -180,6 +180,7 @@ async def test_member_select_and_add_to_trip(db_path):
     mock_context.bot_data = {"db_path": db_path}
     mock_context.user_data = {}
     mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_context.bot.send_message = AsyncMock()
 
     await member_select_callback_handler(mock_update, mock_context)
     mock_query.edit_message_text.assert_called_once()
@@ -220,6 +221,7 @@ async def test_member_select_and_set_weight(db_path):
     mock_context.bot_data = {"db_path": db_path}
     mock_context.user_data = {}
     mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_context.bot.send_message = AsyncMock()
 
     await member_action_callback_handler(mock_update, mock_context)
 
@@ -281,6 +283,7 @@ async def test_member_removal_with_expenses_confirmation(db_path):
     mock_context.bot_data = {"db_path": db_path}
     mock_context.user_data = {}
     mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_context.bot.send_message = AsyncMock()
 
     # 1. First attempt: Prompt confirmation listing the expense
     await member_action_callback_handler(mock_update, mock_context)
@@ -358,4 +361,79 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     assert len(families) == 1
     assert families[0]["name"] == "Guest Uncle Joe"
     assert families[0]["weight"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_record_user_activity_mentions_replies_forwards(db_path):
+    from bot.handlers._helpers import record_user_activity
+    from bot.db import get_known_chat_members
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.bot.id = 999
+    mock_context.bot.username = "shareit_bot"
+
+    # 1. Message with text_mention entity (direct user mention)
+    update1 = MagicMock()
+    update1.effective_chat.type = "group"
+    update1.effective_chat.id = 2000
+    update1.effective_user = create_mock_user(10, "Sender Sam", "sam")
+    update1.chat_member = None
+
+    entity_mention = MagicMock()
+    entity_mention.type = "text_mention"
+    entity_mention.user = create_mock_user(20, "Tagged Tina", "tina")
+
+    update1.effective_message.entities = [entity_mention]
+    update1.effective_message.caption_entities = []
+    update1.effective_message.reply_to_message = None
+    update1.effective_message.forward_from = None
+    update1.effective_message.new_chat_members = []
+    update1.effective_message.text = "Hey Tina!"
+
+    await record_user_activity(update1, mock_context)
+    members = await get_known_chat_members(db_path, 2000)
+    uids = {m["telegram_user_id"] for m in members}
+    assert 10 in uids  # Sender
+    assert 20 in uids  # Tagged user
+
+    # 2. Message with reply_to_message
+    update2 = MagicMock()
+    update2.effective_chat.type = "group"
+    update2.effective_chat.id = 2000
+    update2.effective_user = create_mock_user(10, "Sender Sam", "sam")
+    update2.chat_member = None
+    update2.effective_message.entities = []
+    update2.effective_message.caption_entities = []
+    update2.effective_message.forward_from = None
+    update2.effective_message.new_chat_members = []
+    update2.effective_message.reply_to_message.from_user = create_mock_user(30, "Replied Ray", "ray")
+
+    await record_user_activity(update2, mock_context)
+    members2 = await get_known_chat_members(db_path, 2000)
+    uids2 = {m["telegram_user_id"] for m in members2}
+    assert 30 in uids2
+
+    # 3. Message with @username mention
+    update3 = MagicMock()
+    update3.effective_chat.type = "group"
+    update3.effective_chat.id = 2000
+    update3.effective_user = create_mock_user(10, "Sender Sam", "sam")
+    update3.chat_member = None
+    update3.effective_message.reply_to_message = None
+    update3.effective_message.forward_from = None
+    update3.effective_message.new_chat_members = []
+    update3.effective_message.text = "Hello @newguy"
+
+    entity_uname = MagicMock()
+    entity_uname.type = "mention"
+    entity_uname.offset = 6
+    entity_uname.length = 7  # "@newguy"
+    update3.effective_message.entities = [entity_uname]
+    update3.effective_message.caption_entities = []
+
+    await record_user_activity(update3, mock_context)
+    members3 = await get_known_chat_members(db_path, 2000)
+    unames = {m["username"] for m in members3}
+    assert "newguy" in unames
 
