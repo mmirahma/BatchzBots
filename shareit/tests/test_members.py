@@ -225,6 +225,50 @@ async def test_member_removal_and_skip(db_path):
 
 
 @pytest.mark.asyncio
+async def test_member_removal_with_expenses_confirmation(db_path):
+    trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
+    f1 = await add_family(db_path, trip_id, "Bob's family", 2.0, telegram_user_id=102)
+    await add_shared_expense(db_path, trip_id, f1, "Charcoal & Firewood", 35.0)
+
+    mock_update = MagicMock()
+    mock_query = MagicMock()
+    mock_query.data = "mem_del_102"
+    mock_query.answer = AsyncMock()
+    mock_query.edit_message_text = AsyncMock()
+    mock_update.callback_query = mock_query
+    mock_update.effective_chat.id = 1000
+    mock_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.user_data = {}
+    mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+
+    # 1. First attempt: Prompt confirmation listing the expense
+    await member_action_callback_handler(mock_update, mock_context)
+    mock_query.edit_message_text.assert_called_once()
+    warn_text = mock_query.edit_message_text.call_args[0][0]
+    assert "Charcoal & Firewood" in warn_text
+    assert "$35.00" in warn_text
+    assert "permanently delete" in warn_text
+
+    # Verify buttons include mem_delforce_102
+    reply_markup = mock_query.edit_message_text.call_args[1]["reply_markup"]
+    flat_callbacks = [btn.callback_data for row in reply_markup.inline_keyboard for btn in row]
+    assert "mem_delforce_102" in flat_callbacks
+
+    # 2. Confirm force deletion
+    mock_query.reset_mock()
+    mock_query.data = "mem_delforce_102"
+    await member_action_callback_handler(mock_update, mock_context)
+
+    # Verify family and their expense are deleted
+    fam_after = await get_family(db_path, trip_id, 102)
+    assert fam_after is None
+
+
+
+@pytest.mark.asyncio
 async def test_member_custom_name_and_weight_text_flow(db_path):
     trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
 

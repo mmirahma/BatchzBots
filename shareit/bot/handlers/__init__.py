@@ -68,7 +68,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(join_callback_handler, pattern=r"^join_"))
     app.add_handler(CallbackQueryHandler(join_meal_attendance_callback_handler, pattern=r"^jmat_"))
     app.add_handler(CallbackQueryHandler(member_select_callback_handler, pattern=r"^mem_sel_"))
-    app.add_handler(CallbackQueryHandler(member_action_callback_handler, pattern=r"^(mem_list|mem_refresh|mem_done|mem_custom|mem_custw_|mem_setw_|mem_del_|mem_custfam_w_)"))
+    app.add_handler(CallbackQueryHandler(member_action_callback_handler, pattern=r"^(mem_list|mem_refresh|mem_done|mem_custom|mem_custw_|mem_setw_|mem_del_|mem_delforce_|mem_custfam_w_)"))
     app.add_handler(CallbackQueryHandler(contribute_callback_handler, pattern=r"^contrib_"))
     app.add_handler(CallbackQueryHandler(skip_callback_handler, pattern=r"^skip_"))
     app.add_handler(CallbackQueryHandler(meal_preset_callback_handler, pattern=r"^pmeal_"))

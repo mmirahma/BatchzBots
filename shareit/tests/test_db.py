@@ -303,4 +303,11 @@ async def test_remove_family_from_trip(db_path):
     assert len(families) == 1
     assert families[0]["id"] == f2
 
+    # Remove Family 2 with force=True (should delete expenses and remove family)
+    removed_f2_force = await remove_family_from_trip(db_path, trip_id, f2, force=True)
+    assert removed_f2_force is True
+    assert await get_family_by_id(db_path, f2) is None
+    families_after = await get_families(db_path, trip_id)
+    assert len(families_after) == 0
+
 

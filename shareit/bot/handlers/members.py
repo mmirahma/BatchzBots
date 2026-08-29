@@ -8,7 +8,7 @@ from telegram.error import BadRequest
 
 from bot.db import (
     get_active_trip, get_families, get_family, add_family,
-    update_family_weight, remove_family_from_trip,
+    update_family_weight, remove_family_from_trip, get_family_expenses,
     save_chat_member, get_known_chat_members,
 )
 from bot.i18n import t
@@ -269,12 +269,48 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
     if data.startswith("mem_del_"):
         target_uid = int(data.replace("mem_del_", ""))
         family = await get_family(db_path, trip["id"], target_uid)
+        if not family:
+            await members_handler(update, context)
+            return
+
+        expenses = await get_family_expenses(db_path, trip["id"], family["id"])
+        if expenses:
+            # Member has logged expenses: list them and ask for confirmation
+            expense_lines = []
+            total_amount = 0.0
+            for item in expenses:
+                total_amount += item["amount"]
+                if item["type"] == "meal":
+                    expense_lines.append(f"• 🍽 #{item['meal_number']} {item['item_name']} (${item['amount']:.2f})")
+                else:
+                    expense_lines.append(f"• 🪵 {item['item_name']} (${item['amount']:.2f})")
+            expenses_str = "\n".join(expense_lines)
+
+            warn_text = t("member_delete_with_expenses_warning", lang,
+                          name=family["name"],
+                          total=total_amount,
+                          expenses=expenses_str)
+
+            confirm_buttons = InlineKeyboardMarkup([
+                [InlineKeyboardButton(t("btn_confirm_remove_member_expenses", lang), callback_data=f"mem_delforce_{target_uid}")],
+                [InlineKeyboardButton(t("btn_back_members", lang), callback_data=f"mem_sel_{target_uid}")],
+            ])
+
+            await query.edit_message_text(warn_text, reply_markup=confirm_buttons, parse_mode="Markdown")
+            return
+
+        # No expenses: remove directly
+        await remove_family_from_trip(db_path, trip["id"], family["id"])
+        await reply_ephemeral(update, context, t("member_removed_success", lang, name=family["name"]))
+        await members_handler(update, context)
+        return
+
+    if data.startswith("mem_delforce_"):
+        target_uid = int(data.replace("mem_delforce_", ""))
+        family = await get_family(db_path, trip["id"], target_uid)
         if family:
-            removed = await remove_family_from_trip(db_path, trip["id"], family["id"])
-            if not removed:
-                await reply_ephemeral(update, context, t("member_cannot_remove_active", lang, name=family["name"]))
-            else:
-                await reply_ephemeral(update, context, t("member_removed_success", lang, name=family["name"]))
+            await remove_family_from_trip(db_path, trip["id"], family["id"], force=True)
+            await reply_ephemeral(update, context, t("member_and_expenses_deleted_success", lang, name=family["name"]))
 
         await members_handler(update, context)
         return

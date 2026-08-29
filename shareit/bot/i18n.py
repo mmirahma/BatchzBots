@@ -77,6 +77,18 @@ STRINGS = {
     "member_added_success": {"en": "✅ Added *{name}* with weight {weight}.", "fa": "✅ *{name}* با سهم {weight} به سفر اضافه شد."},
     "member_updated_success": {"en": "✅ Updated *{name}* weight to {weight}.", "fa": "✅ سهم *{name}* به {weight} تغییر یافت."},
     "member_removed_success": {"en": "✅ Removed *{name}* from the trip.", "fa": "✅ *{name}* از سفر حذف شد."},
+    "member_and_expenses_deleted_success": {
+        "en": "✅ Removed *{name}* and deleted all of their logged expenses from the trip.",
+        "fa": "✅ *{name}* و تمام هزینه‌های ثبت‌شده توسط او از سفر حذف شدند.",
+    },
+    "member_delete_with_expenses_warning": {
+        "en": "⚠️ *Remove {name} from Trip?*\n\nThis member has logged the following expenses (*${total:.2f}* total):\n\n{expenses}\n\nProceeding will *permanently delete* this member and all of their logged expenses and contributions.\n\nAre you sure you want to proceed?",
+        "fa": "⚠️ *حذف {name} از سفر؟*\n\nاین عضو هزینه‌های زیر را ثبت کرده است (مجموعاً *${total:.2f}*):\n\n{expenses}\n\nبا تایید، این عضو و تمام هزینه‌ها و پرداخت‌های ثبت‌شده توسط او *به‌طور دائم حذف خواهند شد*.\n\nآیا مطمئن هستید؟",
+    },
+    "btn_confirm_remove_member_expenses": {
+        "en": "🗑 Delete Member & Expenses",
+        "fa": "🗑 حذف عضو و هزینه‌ها",
+    },
     "member_cannot_remove_active": {
         "en": "⚠️ Cannot remove *{name}* because they have logged expenses or contributions.",
         "fa": "⚠️ امکان حذف *{name}* وجود ندارد چون هزینه یا پرداختی ثبت کرده است.",

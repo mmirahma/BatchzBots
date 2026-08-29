@@ -620,16 +620,27 @@ async def get_family_by_id(db_path: str, family_id: int) -> dict | None:
             return dict(row) if row else None
 
 
-async def remove_family_from_trip(db_path: str, trip_id: int, family_id: int) -> bool:
+async def remove_family_from_trip(db_path: str, trip_id: int, family_id: int, force: bool = False) -> bool:
     """
-    Remove a family from a trip if they have no logged expenses or meal contributions.
-    Returns True if successfully removed, False if prevented due to activity.
+    Remove a family from a trip.
+    If force=False: returns False if the family has logged meal contributions or shared expenses.
+    If force=True: deletes the family's meal contributions and shared expenses, then removes the family.
     """
-    active_ids = await get_families_with_activity(db_path, trip_id)
-    if family_id in active_ids:
-        return False
+    if not force:
+        active_ids = await get_families_with_activity(db_path, trip_id)
+        if family_id in active_ids:
+            return False
 
     async with aiosqlite.connect(db_path) as db:
+        if force:
+            await db.execute(
+                "DELETE FROM meal_contributions WHERE family_id = ? AND meal_id IN (SELECT id FROM meals WHERE trip_id = ?)",
+                (family_id, trip_id),
+            )
+            await db.execute(
+                "DELETE FROM shared_expenses WHERE family_id = ? AND trip_id = ?",
+                (family_id, trip_id),
+            )
         await db.execute(
             "DELETE FROM meal_absences WHERE family_id = ? AND meal_id IN (SELECT id FROM meals WHERE trip_id = ?)",
             (family_id, trip_id),
