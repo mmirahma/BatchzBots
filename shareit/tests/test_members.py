@@ -725,6 +725,35 @@ async def test_admin_log_expense_for_other_members(db_path):
     admin_contrib = next(c for c in m1_contribs if c["family_id"] == f_admin)
     assert admin_contrib["amount"] == 30.0
 
+    # 9. Admin logs Shared Expense for Bob and types custom amount "$ 67.50" via text_menu_handler
+    from bot.handlers.menu import text_menu_handler
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_bob}"
+    up.callback_query = query
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_type_shared"
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_cat_Firewood"
+    await admin_log_flow_callback_handler(up, mock_context)
+    assert mock_context.user_data["admin_log_expense"]["step"] == "shared_amount"
+
+    # User types "$ 67.50" in chat
+    msg_up = MagicMock()
+    msg_up.effective_chat.id = 9000
+    msg_up.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    msg_up.callback_query = None
+    msg_up.message.text = "$ 67.50"
+    msg_up.message.reply_text = AsyncMock()
+
+    await text_menu_handler(msg_up, mock_context)
+
+    # Verify Firewood expense was logged for Bob with amount 67.50
+    shared_exps_final = await get_shared_expenses(db_path, trip_id)
+    firewood_exp = next(e for e in shared_exps_final if e["description"] == "Firewood")
+    assert firewood_exp["amount"] == 67.50
+    assert firewood_exp["family_id"] == f_bob
+
+
 
 def test_admin_callback_pattern_routing():
     import re

@@ -34,6 +34,26 @@ MEAL_NAME_PRESETS = [
 ]
 
 
+def _parse_amount(text: str) -> float | None:
+    """Safely parse user-entered amount strings, including currency signs, commas, and unicode digits."""
+    if not text:
+        return None
+    cleaned = text.strip().replace("$", "").replace("،", ".").replace(",", ".")
+    # Translate Persian and Arabic digits
+    persian_digits = "۰۱۲۳۴۵۶۷۸۹"
+    arabic_digits = "٠١٢٣٤٥٦٧٨٩"
+    for i, d in enumerate(persian_digits):
+        cleaned = cleaned.replace(d, str(i))
+    for i, d in enumerate(arabic_digits):
+        cleaned = cleaned.replace(d, str(i))
+    cleaned = cleaned.strip()
+    try:
+        val = float(cleaned)
+        return val if val > 0 else None
+    except ValueError:
+        return None
+
+
 async def edit_my_expenses_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display all logged expenses for the user's family with inline edit buttons."""
     if not await require_group(update, context):
@@ -284,11 +304,8 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
 
             # A3. Admin typed custom shared amount
             if step == "shared_amount":
-                try:
-                    amount = float(text)
-                    if amount <= 0:
-                        return False
-                except ValueError:
+                amount = _parse_amount(text)
+                if amount is None:
                     return False
                 state = context.user_data.pop("admin_log_expense", None)
                 desc = state.get("desc", "Shared Expense")
@@ -306,11 +323,8 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
 
             # A4. Admin typed custom meal amount
             if step == "meal_amount":
-                try:
-                    amount = float(text)
-                    if amount <= 0:
-                        return False
-                except ValueError:
+                amount = _parse_amount(text)
+                if amount is None:
                     return False
                 state = context.user_data.pop("admin_log_expense", None)
                 mname = state.get("meal_name", "Meal")
@@ -351,11 +365,8 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
 
             # A6. Admin typed custom targeted amount
             if step == "targeted_amount":
-                try:
-                    amount = float(text)
-                    if amount <= 0:
-                        return False
-                except ValueError:
+                amount = _parse_amount(text)
+                if amount is None:
                     return False
                 state = context.user_data.pop("admin_log_expense", None)
                 desc = state.get("desc", "Custom Expense")
@@ -369,11 +380,8 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
 
             # A7. Admin typed custom contribution amount for an existing meal
             if step == "contrib_amount":
-                try:
-                    amount = float(text)
-                    if amount <= 0:
-                        return False
-                except ValueError:
+                amount = _parse_amount(text)
+                if amount is None:
                     return False
                 state = context.user_data.pop("admin_log_expense", None)
                 meal_id = state["meal_id"]
@@ -408,9 +416,8 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
     if update.effective_chat.id != pending["chat_id"]:
         return False
 
-    try:
-        amount = float(text)
-    except ValueError:
+    amount = _parse_amount(text)
+    if amount is None:
         return False
 
     item_type = pending["type"]

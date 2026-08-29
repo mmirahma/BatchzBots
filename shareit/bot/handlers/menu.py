@@ -183,6 +183,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         or context.user_data.get("pending_targeted_expense_amt_prompt")
         or context.user_data.get("pending_contribute")
         or context.user_data.get("pending_edit_expense")
+        or context.user_data.get("admin_log_expense")
         or context.user_data.get("pending_custom_member_name")
         or context.user_data.get("pending_custom_member_weight")
     )
@@ -200,7 +201,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             "pending_meal_desc", "pending_meal_name", "pending_meal_amount_prompt",
             "pending_expense_prompt", "pending_expense_desc", "pending_expense_amount_prompt",
             "pending_targeted_expense_desc", "pending_targeted_expense_amt_prompt",
-            "pending_contribute", "pending_edit_expense", "targeted_expense_desc",
+            "pending_contribute", "pending_edit_expense", "admin_log_expense", "targeted_expense_desc",
             "targeted_expense_weights", "pending_custom_member_name", "pending_custom_member_weight",
             "pending_custom_member_name_val"
         ):
