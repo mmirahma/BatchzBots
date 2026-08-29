@@ -162,6 +162,44 @@ async def test_members_handler_admin_permission_check(db_path):
 
 
 @pytest.mark.asyncio
+async def test_member_select_and_add_to_trip(db_path):
+    trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
+    await save_chat_member(db_path, 1000, 102, "Bob Vance")
+
+    # 1. Admin clicks on Bob (who is not in the trip)
+    mock_update = MagicMock()
+    mock_query = MagicMock()
+    mock_query.data = "mem_sel_102"
+    mock_query.answer = AsyncMock()
+    mock_query.edit_message_text = AsyncMock()
+    mock_update.callback_query = mock_query
+    mock_update.effective_chat.id = 1000
+    mock_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.user_data = {}
+    mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+
+    await member_select_callback_handler(mock_update, mock_context)
+    mock_query.edit_message_text.assert_called_once()
+    reply_markup = mock_query.edit_message_text.call_args[1]["reply_markup"]
+    flat_callbacks = [btn.callback_data for row in reply_markup.inline_keyboard for btn in row]
+    assert "mem_add_102" in flat_callbacks
+
+    # 2. Admin clicks Add to Trip button (mem_add_102)
+    mock_query.reset_mock()
+    mock_query.data = "mem_add_102"
+    await member_action_callback_handler(mock_update, mock_context)
+
+    # Verify Bob was added to families table with default weight 2.0
+    family = await get_family(db_path, trip_id, 102)
+    assert family is not None
+    assert family["weight"] == 2.0
+    assert "Bob Vance" in family["name"]
+
+
+@pytest.mark.asyncio
 async def test_member_select_and_set_weight(db_path):
     trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
     trip = {"id": trip_id, "name": "Summer Trip", "chat_id": 1000}

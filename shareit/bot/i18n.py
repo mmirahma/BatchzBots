@@ -69,6 +69,7 @@ STRINGS = {
     },
     "status_joined": {"en": "In Trip (Weight: {weight})", "fa": "عضو در سفر (سهم: {weight})"},
     "status_not_joined": {"en": "Not in trip (Skipped)", "fa": "عدم حضور در سفر (رد شده)"},
+    "btn_add_to_trip": {"en": "➕ Add to Trip (Default w=2.0)", "fa": "➕ افزودن به سفر (پیش‌فرض سهم ۲.۰)"},
     "btn_remove_member": {"en": "🚫 Skip / Remove from Trip", "fa": "🚫 حذف از سفر / رد کردن"},
     "btn_custom_member": {"en": "➕ Add Custom Family Name", "fa": "➕ افزودن نام دلخواه خانواده"},
     "btn_refresh_members": {"en": "🔄 Refresh Trip Members", "fa": "🔄 بروزرسانی اعضای سفر"},

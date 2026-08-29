@@ -26,7 +26,29 @@ async def get_all_group_members(bot, db_path: str, chat_id: int) -> list[dict]:
     known_members = await get_known_chat_members(db_path, chat_id)
     known_map = {m["telegram_user_id"]: dict(m) for m in known_members}
 
-    # Fetch administrators from Telegram Bot API to discover active admins
+    # 1. Query past trip participants in this chat
+    import aiosqlite
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            async with db.execute(
+                "SELECT DISTINCT f.telegram_user_id, f.name FROM families f JOIN trips t ON f.trip_id = t.id WHERE t.chat_id = ? AND f.telegram_user_id > 0",
+                (chat_id,),
+            ) as cursor:
+                for row in await cursor.fetchall():
+                    uid, name = row[0], row[1]
+                    if uid not in known_map:
+                        clean_name = name.replace("'s family", "").replace(" Family", "").replace(" family", "")
+                        await save_chat_member(db_path, chat_id, uid, clean_name, None)
+                        known_map[uid] = {
+                            "chat_id": chat_id,
+                            "telegram_user_id": uid,
+                            "name": clean_name,
+                            "username": None,
+                        }
+    except Exception as e:
+        logger.warning(f"Could not query historical families for chat {chat_id}: {e}")
+
+    # 2. Fetch administrators from Telegram Bot API to discover active admins
     try:
         admins = await bot.get_chat_administrators(chat_id)
         for admin in admins:
@@ -165,8 +187,14 @@ async def member_select_callback_handler(update: Update, context: ContextTypes.D
     context.user_data["selected_member_uid"] = target_uid
     context.user_data["selected_member_name"] = display_name
 
-    # Build weight selection buttons
+    # Build buttons
     buttons = []
+
+    # If member is NOT in the trip: offer a quick "Add to Trip" button
+    if not family:
+        buttons.append([InlineKeyboardButton(t("btn_add_to_trip", lang), callback_data=f"mem_add_{target_uid}")])
+
+    # Weight selection buttons
     row = []
     for w in WEIGHT_OPTIONS:
         label = str(w) if w != int(w) else str(int(w))
@@ -245,6 +273,22 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         await query.edit_message_text(prompt_text, reply_markup=cancel_btn, parse_mode="Markdown")
         return
 
+    if data.startswith("mem_add_"):
+        target_uid = int(data.replace("mem_add_", ""))
+        default_weight = 2.0
+        existing = await get_family(db_path, trip["id"], target_uid)
+        if not existing:
+            members = await get_all_group_members(context.bot, db_path, chat_id)
+            rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+            name = rec["name"] if rec else f"Family #{target_uid}"
+            if not name.endswith("'s family") and not name.endswith(" Family"):
+                name = name + "'s family"
+            await add_family(db_path, trip["id"], name, default_weight, target_uid)
+            await reply_ephemeral(update, context, t("member_added_success", lang, name=name, weight=default_weight))
+
+        await members_handler(update, context)
+        return
+
     if data.startswith("mem_setw_"):
         parts = data.split("_")  # mem, setw, <uid>, <weight>
         target_uid = int(parts[2])
@@ -254,6 +298,7 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         existing = await get_family(db_path, trip["id"], target_uid)
         if existing:
             await update_family_weight(db_path, existing["id"], weight)
+            await reply_ephemeral(update, context, t("member_updated_success", lang, name=existing["name"], weight=weight))
         else:
             members = await get_all_group_members(context.bot, db_path, chat_id)
             rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
@@ -261,6 +306,7 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
             if not name.endswith("'s family") and not name.endswith(" Family"):
                 name = name + "'s family"
             await add_family(db_path, trip["id"], name, weight, target_uid)
+            await reply_ephemeral(update, context, t("member_added_success", lang, name=name, weight=weight))
 
         # Return to member list
         await members_handler(update, context)
