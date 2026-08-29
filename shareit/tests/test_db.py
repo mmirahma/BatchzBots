@@ -311,3 +311,26 @@ async def test_remove_family_from_trip(db_path):
     assert len(families_after) == 0
 
 
+@pytest.mark.asyncio
+async def test_get_all_trip_expenses(db_path):
+    from bot.db import get_all_trip_expenses
+    trip_id = await create_trip(db_path, "Expense Test", chat_id=700)
+    f1 = await add_family(db_path, trip_id, "Family Alpha", 2.0, telegram_user_id=21)
+    f2 = await add_family(db_path, trip_id, "Family Beta", 1.5, telegram_user_id=22)
+
+    # 1. Meal contribution from f1
+    m1 = await add_meal(db_path, trip_id, "Breakfast", f1, 45.0)
+    # 2. Shared expense from f2
+    se1 = await add_shared_expense(db_path, trip_id, f2, "Firewood", 30.0)
+
+    all_expenses = await get_all_trip_expenses(db_path, trip_id)
+    assert len(all_expenses) == 2
+    types = {e["type"] for e in all_expenses}
+    assert "meal" in types
+    assert "expense" in types
+
+    f_names = {e["family_name"] for e in all_expenses}
+    assert "Family Alpha" in f_names
+    assert "Family Beta" in f_names
+
+

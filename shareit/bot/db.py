@@ -553,6 +553,39 @@ async def get_family_expenses(db_path: str, trip_id: int, family_id: int) -> lis
     return results
 
 
+async def get_all_trip_expenses(db_path: str, trip_id: int) -> list[dict]:
+    """Get all meal contributions and general shared expenses paid across all families in a trip."""
+    results = []
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        # 1. Meal contributions with family names
+        async with db.execute(
+            "SELECT mc.id as item_id, mc.amount, m.meal_number, m.name as item_name, mc.meal_id, 'meal' as type, "
+            "f.id as family_id, f.name as family_name "
+            "FROM meal_contributions mc "
+            "JOIN meals m ON mc.meal_id = m.id "
+            "JOIN families f ON mc.family_id = f.id "
+            "WHERE m.trip_id = ? ORDER BY m.meal_number ASC, mc.id ASC",
+            (trip_id,),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append(dict(row))
+
+        # 2. General shared expenses with family names
+        async with db.execute(
+            "SELECT se.id as item_id, se.amount, se.description as item_name, 'expense' as type, "
+            "f.id as family_id, f.name as family_name "
+            "FROM shared_expenses se "
+            "JOIN families f ON se.family_id = f.id "
+            "WHERE se.trip_id = ? ORDER BY se.id ASC",
+            (trip_id,),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                results.append(dict(row))
+
+    return results
+
+
 async def update_shared_expense_amount(db_path: str, expense_id: int, amount: float) -> None:
     """Update amount of a general shared expense."""
     async with aiosqlite.connect(db_path) as db:

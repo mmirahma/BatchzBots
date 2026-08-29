@@ -437,3 +437,130 @@ async def test_record_user_activity_mentions_replies_forwards(db_path):
     unames = {m["username"] for m in members3}
     assert "newguy" in unames
 
+
+@pytest.mark.asyncio
+async def test_admin_edit_all_expenses(db_path):
+    from bot.handlers.edit_expenses import (
+        admin_edit_all_expenses_handler,
+        admin_expense_select_callback_handler,
+        admin_expense_action_callback_handler,
+        pending_edit_expense_text_handler,
+    )
+    from bot.db import (
+        create_trip, add_family, add_meal, add_shared_expense,
+        get_shared_expenses, get_meal_contributions,
+    )
+
+    trip_id = await create_trip(db_path, "Summer Trip", chat_id=8000)
+    f1 = await add_family(db_path, trip_id, "Alice Family", 2.0, telegram_user_id=101)  # Admin
+    f2 = await add_family(db_path, trip_id, "Bob Family", 1.5, telegram_user_id=102)    # Member
+
+    m1_id = await add_meal(db_path, trip_id, "Breakfast", f1, 40.0)
+    se1_id = await add_shared_expense(db_path, trip_id, f2, "Firewood", 35.0)
+
+    # 1. Non-admin attempts to access admin expenses -> Blocked
+    non_admin_update = MagicMock()
+    non_admin_update.effective_chat.id = 8000
+    non_admin_update.effective_chat.type = "group"
+    non_admin_update.effective_user = create_mock_user(102, "Bob Vance", "bob")
+    non_admin_update.callback_query = None
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.user_data = {}
+    mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_context.bot.send_message = AsyncMock()
+
+    await admin_edit_all_expenses_handler(non_admin_update, mock_context)
+    mock_context.bot.send_message.assert_called_once()
+    assert "only available to the group owner and Maysam Mir" in mock_context.bot.send_message.call_args[1]["text"]
+
+    # 2. Admin (Maysam Mir) accesses admin expenses -> Sees all expenses
+    mock_context.bot.send_message.reset_mock()
+    admin_update = MagicMock()
+    admin_update.effective_chat.id = 8000
+    admin_update.effective_chat.type = "group"
+    admin_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    admin_query = MagicMock()
+    admin_query.data = "menu_admin_expenses"
+    admin_query.answer = AsyncMock()
+    admin_query.edit_message_text = AsyncMock()
+    admin_update.callback_query = admin_query
+
+    await admin_edit_all_expenses_handler(admin_update, mock_context)
+    admin_query.edit_message_text.assert_called_once()
+    text = admin_query.edit_message_text.call_args[0][0]
+    assert "Manage All Trip Expenses" in text
+    reply_markup = admin_query.edit_message_text.call_args[1]["reply_markup"]
+    flat_labels = [btn.text for row in reply_markup.inline_keyboard for btn in row]
+    # Check that both Alice's meal and Bob's firewood are listed
+    assert any("Breakfast" in l and "Alice Family" in l for l in flat_labels)
+    assert any("Firewood" in l and "Bob Family" in l for l in flat_labels)
+
+    # 3. Admin selects Bob's Firewood expense (admexp_expense_<se1_id>)
+    sel_update = MagicMock()
+    sel_update.effective_chat.id = 8000
+    sel_update.effective_chat.type = "group"
+    sel_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    sel_query = MagicMock()
+    sel_query.data = f"admexp_expense_{se1_id}"
+    sel_query.answer = AsyncMock()
+    sel_query.edit_message_text = AsyncMock()
+    sel_update.callback_query = sel_query
+
+    await admin_expense_select_callback_handler(sel_update, mock_context)
+    sel_query.edit_message_text.assert_called_once()
+    sel_text = sel_query.edit_message_text.call_args[0][0]
+    assert "Bob Family" in sel_text
+    assert "Firewood" in sel_text
+    assert "$35.00" in sel_text
+
+    # 4. Admin edits Bob's expense amount to $80.00
+    act_update = MagicMock()
+    act_update.effective_chat.id = 8000
+    act_update.effective_chat.type = "group"
+    act_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    act_query = MagicMock()
+    act_query.data = f"admexpamt_expense_{se1_id}_80.00"
+    act_query.answer = AsyncMock()
+    act_query.edit_message_text = AsyncMock()
+    act_update.callback_query = act_query
+
+    await admin_expense_action_callback_handler(act_update, mock_context)
+    shared_exps = await get_shared_expenses(db_path, trip_id)
+    bob_exp = next(e for e in shared_exps if e["id"] == se1_id)
+    assert bob_exp["amount"] == 80.0
+
+    # 5. Admin deletes Alice's meal contribution
+    del_query = MagicMock()
+    del_query.data = f"admexpdel_meal_{m1_id}"
+    del_query.answer = AsyncMock()
+    del_query.edit_message_text = AsyncMock()
+    act_update.callback_query = del_query
+
+    await admin_expense_action_callback_handler(act_update, mock_context)
+    meal_contribs = await get_meal_contributions(db_path, trip_id)
+    assert len(meal_contribs) == 0
+
+    # 6. Admin types custom amount using text handler
+    mock_context.user_data["pending_edit_expense"] = {
+        "type": "expense",
+        "item_id": se1_id,
+        "name": "Firewood",
+        "chat_id": 8000,
+        "timestamp": 9999999999,
+        "is_admin": True,
+    }
+    msg_update = MagicMock()
+    msg_update.effective_chat.id = 8000
+    msg_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    msg_update.callback_query = None
+    msg_update.message.text = "125.50"
+
+    handled = await pending_edit_expense_text_handler(msg_update, mock_context)
+    assert handled is True
+    shared_exps_after = await get_shared_expenses(db_path, trip_id)
+    bob_exp_final = next(e for e in shared_exps_after if e["id"] == se1_id)
+    assert bob_exp_final["amount"] == 125.50
+
+

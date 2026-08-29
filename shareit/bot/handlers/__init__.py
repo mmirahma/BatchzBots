@@ -35,6 +35,9 @@ from bot.handlers.edit_expenses import (
     edit_my_expenses_handler,
     edit_expense_select_callback_handler,
     edit_expense_action_callback_handler,
+    admin_edit_all_expenses_handler,
+    admin_expense_select_callback_handler,
+    admin_expense_action_callback_handler,
 )
 
 
@@ -60,6 +63,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("skip", skip_handler))
     app.add_handler(CommandHandler("expense", expense_handler))
     app.add_handler(CommandHandler("editmyexpenses", edit_my_expenses_handler))
+    app.add_handler(CommandHandler("adminexpenses", admin_edit_all_expenses_handler))
+    app.add_handler(CommandHandler("editexpenses", admin_edit_all_expenses_handler))
     app.add_handler(CommandHandler("settle", settle_handler))
     app.add_handler(CommandHandler("meals", meals_handler))
     app.add_handler(CommandHandler("myshare", my_share_handler))
@@ -89,6 +94,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(targeted_amount_callback_handler, pattern=r"^ptgtamt_"))
     app.add_handler(CallbackQueryHandler(edit_expense_select_callback_handler, pattern=r"^edexp_"))
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
+    app.add_handler(CallbackQueryHandler(admin_expense_select_callback_handler, pattern=r"^admexp_"))
+    app.add_handler(CallbackQueryHandler(admin_expense_action_callback_handler, pattern=r"^(admexpamt_|admexpdel_|admexp_list)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
     app.add_handler(CallbackQueryHandler(delete_meal_prompt_callback_handler, pattern=r"^delmeal_prompt_"))
     app.add_handler(CallbackQueryHandler(delete_meal_confirm_callback_handler, pattern=r"^delmeal_confirm_"))

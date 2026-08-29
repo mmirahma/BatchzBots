@@ -59,6 +59,16 @@ STRINGS = {
     },
     "btn_back_admin": {"en": "🔙 Back to Admin", "fa": "🔙 بازگشت به پنل مدیریت"},
     "btn_members": {"en": "👥 Trip Members", "fa": "👥 اعضای سفر"},
+    "btn_edit_all_expenses": {"en": "📝 Manage All Expenses", "fa": "📝 مدیریت تمام هزینه‌ها"},
+    "btn_back_all_expenses": {"en": "🔙 Back to All Expenses", "fa": "🔙 بازگشت به لیست تمام هزینه‌ها"},
+    "admin_edit_expenses_title": {
+        "en": "📝 *Manage All Trip Expenses*\nTrip: *{trip_name}*\n\nSelect an expense below to modify its amount or delete it:",
+        "fa": "📝 *مدیریت تمام هزینه‌های سفر*\nسفر: *{trip_name}*\n\nبرای تغییر مبلغ یا حذف، یک هزینه را انتخاب کنید:",
+    },
+    "admin_edit_expense_prompt": {
+        "en": "✏️ *Edit Expense*\nItem: *{name}*\nPaid by: *{family_name}*\n💰 Current Amount: *${amount:.2f}*\n\nSelect a new amount or type a number:",
+        "fa": "✏️ *ویرایش هزینه*\nمورد: *{name}*\nپرداخت‌کننده: *{family_name}*\n💰 مبلغ فعلی: *${amount:.2f}*\n\nمبلغ جدید را انتخاب کنید یا یک عدد تایپ کنید:",
+    },
     "members_title": {
         "en": "👥 *Trip Members & Roster*\nTrip: *{trip_name}*\n\nTap a member below to add them to the trip, adjust their weight, or skip/remove them:",
         "fa": "👥 *اعضای سفر و لیست حاضرین*\nسفر: *{trip_name}*\n\nبرای عضویت در سفر، تنظیم سهم، یا حذف/رد کردن روی نام هر فرد کلیک کنید:",

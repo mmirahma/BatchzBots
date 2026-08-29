@@ -67,6 +67,7 @@ Add the bot to your camping group chat, then:
 | `/join <weight>` | Join with share weight |
 | `/admin` | Open Admin panel (Maysam Mir & Chat Owner only) |
 | `/members` | (Admin) List trip members & manage roster / weights |
+| `/adminexpenses` | (Admin) Manage, edit amount, or delete any family's expenses |
 | `/meal <name> <amount>` | Log a meal |
 | `/contribute <#> <amount>` | Add to existing meal |
 | `/skip` | Mark absent from a meal |

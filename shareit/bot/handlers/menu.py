@@ -107,6 +107,7 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     buttons = [
         [InlineKeyboardButton(t("btn_members", lang), callback_data="menu_members")],
+        [InlineKeyboardButton(t("btn_edit_all_expenses", lang), callback_data="menu_admin_expenses")],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     text = t("admin_menu_title", lang, trip_name=trip["name"])
@@ -280,6 +281,9 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_members":
             from bot.handlers.members import members_handler
             await members_handler(update, context)
+        elif data == "menu_admin_expenses":
+            from bot.handlers.edit_expenses import admin_edit_all_expenses_handler
+            await admin_edit_all_expenses_handler(update, context)
         elif data == "menu_contrib":
             from bot.handlers.meal import contribute_handler
             await contribute_handler(update, context)
