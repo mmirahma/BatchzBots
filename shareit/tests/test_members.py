@@ -564,3 +564,139 @@ async def test_admin_edit_all_expenses(db_path):
     assert bob_exp_final["amount"] == 125.50
 
 
+@pytest.mark.asyncio
+async def test_admin_log_expense_for_other_members(db_path):
+    from bot.handlers.edit_expenses import (
+        admin_log_flow_callback_handler,
+        pending_edit_expense_text_handler,
+    )
+    from bot.db import (
+        create_trip, add_family, get_shared_expenses, get_meals, get_meal_contributions,
+    )
+
+    trip_id = await create_trip(db_path, "Camping 2026", chat_id=9000)
+    f_admin = await add_family(db_path, trip_id, "Maysam Family", 2.0, telegram_user_id=101)
+    f_bob = await add_family(db_path, trip_id, "Bob Vance Family", 1.5, telegram_user_id=102)
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.user_data = {}
+    mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_context.bot.send_message = AsyncMock()
+
+    # 1. Admin clicks "Log Expense for Member" (admexp_log_prompt)
+    up = MagicMock()
+    up.effective_chat.id = 9000
+    up.effective_chat.type = "group"
+    up.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    query = MagicMock()
+    query.data = "admexp_log_prompt"
+    query.answer = AsyncMock()
+    query.edit_message_text = AsyncMock()
+    up.callback_query = query
+
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.edit_message_text.assert_called_once()
+    reply_markup = query.edit_message_text.call_args[1]["reply_markup"]
+    flat_data = [btn.callback_data for row in reply_markup.inline_keyboard for btn in row]
+    assert f"admlog_fam_{f_bob}" in flat_data
+
+    # 2. Admin selects Bob's family
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_bob}"
+    await admin_log_flow_callback_handler(up, mock_context)
+    assert mock_context.user_data["admin_log_expense"]["family_id"] == f_bob
+    assert mock_context.user_data["admin_log_expense"]["family_name"] == "Bob Vance Family"
+
+    # 3. Admin chooses Shared Expense (admlog_type_shared)
+    query.reset_mock()
+    query.data = "admlog_type_shared"
+    await admin_log_flow_callback_handler(up, mock_context)
+    assert mock_context.user_data["admin_log_expense"]["step"] == "shared_desc"
+
+    # 4. Admin selects category Groceries (admlog_cat_Groceries)
+    query.reset_mock()
+    query.data = "admlog_cat_Groceries"
+    await admin_log_flow_callback_handler(up, mock_context)
+    assert mock_context.user_data["admin_log_expense"]["desc"] == "Groceries"
+    assert mock_context.user_data["admin_log_expense"]["step"] == "shared_amount"
+
+    # 5. Admin selects preset amount $50.00 (admlog_samt_50.00)
+    query.reset_mock()
+    query.data = "admlog_samt_50.00"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    # Verify shared expense was created under Bob's family ID
+    shared_exps = await get_shared_expenses(db_path, trip_id)
+    assert len(shared_exps) == 1
+    assert shared_exps[0]["family_id"] == f_bob
+    assert shared_exps[0]["description"] == "Groceries"
+    assert shared_exps[0]["amount"] == 50.0
+
+    # 6. Admin logs a Meal for Bob via text flow
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_bob}"
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_type_meal"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    # Admin types custom meal name: "Steak Dinner"
+    msg_name = MagicMock()
+    msg_name.effective_chat.id = 9000
+    msg_name.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    msg_name.callback_query = None
+    msg_name.message.text = "Steak Dinner"
+    handled = await pending_edit_expense_text_handler(msg_name, mock_context)
+    assert handled is True
+    assert mock_context.user_data["admin_log_expense"]["meal_name"] == "Steak Dinner"
+    assert mock_context.user_data["admin_log_expense"]["step"] == "meal_amount"
+
+    # Admin types custom meal amount: "115.75"
+    msg_amt = MagicMock()
+    msg_amt.effective_chat.id = 9000
+    msg_amt.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    msg_amt.callback_query = None
+    msg_amt.message.text = "115.75"
+    handled_amt = await pending_edit_expense_text_handler(msg_amt, mock_context)
+    assert handled_amt is True
+
+    # Verify meal was created under Bob's family ID
+    meals = await get_meals(db_path, trip_id)
+    assert len(meals) == 1
+    assert meals[0]["name"] == "Steak Dinner"
+    contribs = await get_meal_contributions(db_path, trip_id)
+    assert len(contribs) == 1
+    assert contribs[0]["family_id"] == f_bob
+    assert contribs[0]["amount"] == 115.75
+
+    # 7. Admin logs Custom-Weighted Expense for Bob
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_bob}"
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_type_targeted"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    query.data = "admlog_tgtcat_Boat Rental"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    query.data = "admlog_tgtamt_120.00"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    # Now verify weights prompt was triggered and saved with custom payer f_bob
+    from bot.handlers.expense import targeted_expense_family_callback_handler
+    save_query = MagicMock()
+    save_query.data = "ptgt_save"
+    save_query.answer = AsyncMock()
+    save_query.edit_message_text = AsyncMock()
+    up.callback_query = save_query
+
+    await targeted_expense_family_callback_handler(up, mock_context)
+    shared_exps_all = await get_shared_expenses(db_path, trip_id)
+    boat_exp = next(e for e in shared_exps_all if e["description"] == "Boat Rental")
+    assert boat_exp["amount"] == 120.0
+    assert boat_exp["family_id"] == f_bob
+    assert boat_exp["grouping_id"] is not None
+
+
+
+

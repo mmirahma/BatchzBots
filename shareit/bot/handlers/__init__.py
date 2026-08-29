@@ -38,6 +38,7 @@ from bot.handlers.edit_expenses import (
     admin_edit_all_expenses_handler,
     admin_expense_select_callback_handler,
     admin_expense_action_callback_handler,
+    admin_log_flow_callback_handler,
 )
 
 
@@ -96,6 +97,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(edit_expense_action_callback_handler, pattern=r"^(edexpamt_|edexpdel_|edexp_list)"))
     app.add_handler(CallbackQueryHandler(admin_expense_select_callback_handler, pattern=r"^admexp_"))
     app.add_handler(CallbackQueryHandler(admin_expense_action_callback_handler, pattern=r"^(admexpamt_|admexpdel_|admexp_list)"))
+    app.add_handler(CallbackQueryHandler(admin_log_flow_callback_handler, pattern=r"^(admexp_log_prompt|admlog_)"))
     app.add_handler(CallbackQueryHandler(lang_callback_handler, pattern=r"^plang_"))
     app.add_handler(CallbackQueryHandler(delete_meal_prompt_callback_handler, pattern=r"^delmeal_prompt_"))
     app.add_handler(CallbackQueryHandler(delete_meal_confirm_callback_handler, pattern=r"^delmeal_confirm_"))

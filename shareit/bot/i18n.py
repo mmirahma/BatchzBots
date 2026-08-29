@@ -61,6 +61,42 @@ STRINGS = {
     "btn_members": {"en": "👥 Trip Members", "fa": "👥 اعضای سفر"},
     "btn_edit_all_expenses": {"en": "📝 Manage All Expenses", "fa": "📝 مدیریت تمام هزینه‌ها"},
     "btn_back_all_expenses": {"en": "🔙 Back to All Expenses", "fa": "🔙 بازگشت به لیست تمام هزینه‌ها"},
+    "btn_admin_log_expense": {"en": "➕ Log Expense for Member", "fa": "➕ ثبت هزینه برای اعضا"},
+    "admin_log_select_family_title": {
+        "en": "👤 *Log Expense for Member*\nTrip: *{trip_name}*\n\nSelect the member who paid for this expense:",
+        "fa": "👤 *ثبت هزینه برای اعضا*\nسفر: *{trip_name}*\n\nعضوی که هزینه را پرداخت کرده انتخاب کنید:",
+    },
+    "admin_log_choose_type_title": {
+        "en": "➕ *Log Expense for {family_name}*\n\nChoose expense type:",
+        "fa": "➕ *ثبت هزینه برای {family_name}*\n\nنوع هزینه را انتخاب کنید:",
+    },
+    "btn_log_meal_for_member": {"en": "🍽 Meal / Event", "fa": "🍽 وعده غذایی / رویداد"},
+    "btn_log_shared_for_member": {"en": "🪵 Shared Expense (All Families)", "fa": "🪵 هزینه مشترک (بین همه خانواده‌ها)"},
+    "btn_log_targeted_for_member": {"en": "🎯 Custom-Weighted Split", "fa": "🎯 هزینه با تقسیم و سهم سفارشی"},
+    "admin_log_ask_meal_name": {
+        "en": "🍽 *Log Meal for {family_name}*\n\nSelect meal or type custom name in chat:",
+        "fa": "🍽 *ثبت وعده برای {family_name}*\n\nنوع وعده را انتخاب کنید یا نام دلخواه تایپ کنید:",
+    },
+    "admin_log_ask_shared_cat": {
+        "en": "🪵 *Log Shared Expense for {family_name}*\n\nSelect category or type description in chat:",
+        "fa": "🪵 *ثبت هزینه مشترک برای {family_name}*\n\nدسته‌بندی را انتخاب کنید یا شرح دلخواه تایپ کنید:",
+    },
+    "admin_log_ask_targeted_desc": {
+        "en": "🎯 *Custom Split Expense for {family_name}*\n\nSelect category or type description in chat:",
+        "fa": "🎯 *هزینه با تقسیم سفارشی برای {family_name}*\n\nدسته‌بندی را انتخاب کنید یا شرح دلخواه تایپ کنید:",
+    },
+    "admin_log_ask_amount": {
+        "en": "💰 *Amount for {name}*\nPaid by: *{family_name}*\n\nSelect amount or type a number in chat:",
+        "fa": "💰 *مبلغ برای {name}*\nپرداخت‌کننده: *{family_name}*\n\nمبلغ را انتخاب کنید یا عدد دلخواه تایپ کنید:",
+    },
+    "admin_expense_logged_success": {
+        "en": "✅ Successfully logged *{description}* (*${amount:.2f}*) for *{family_name}*.",
+        "fa": "✅ هزینه *{description}* (*${amount:.2f}*) با موفقیت برای *{family_name}* ثبت شد.",
+    },
+    "admin_meal_logged_success": {
+        "en": "✅ Successfully logged Meal #{meal_num} *{name}* (*${amount:.2f}*) for *{family_name}*.",
+        "fa": "✅ وعده #{meal_num} *{name}* (*${amount:.2f}*) با موفقیت برای *{family_name}* ثبت شد.",
+    },
     "admin_edit_expenses_title": {
         "en": "📝 *Manage All Trip Expenses*\nTrip: *{trip_name}*\n\nSelect an expense below to modify its amount or delete it:",
         "fa": "📝 *مدیریت تمام هزینه‌های سفر*\nسفر: *{trip_name}*\n\nبرای تغییر مبلغ یا حذف، یک هزینه را انتخاب کنید:",

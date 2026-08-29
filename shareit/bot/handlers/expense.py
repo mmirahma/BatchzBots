@@ -167,13 +167,17 @@ async def targeted_expense_family_callback_handler(update: Update, context: Cont
         context.user_data.pop("pending_targeted_amount", None)
 
         from bot.db import (
-            get_active_trip, get_family, get_families,
+            get_active_trip, get_family, get_family_by_id, get_families,
             create_grouping, add_or_update_grouping_member, add_shared_expense
         )
         trip = await get_active_trip(db_path, chat_id)
         if not trip:
             return
-        payer_family = await get_family(db_path, trip["id"], user_id)
+        payer_fid = context.user_data.pop("pending_targeted_payer_fid", None)
+        if payer_fid:
+            payer_family = await get_family_by_id(db_path, payer_fid)
+        else:
+            payer_family = await get_family(db_path, trip["id"], user_id)
         if not payer_family:
             return
         families = await get_families(db_path, trip["id"])
