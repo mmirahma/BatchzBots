@@ -10,6 +10,7 @@ from bot.db import (
     update_shared_expense_amount, delete_shared_expense,
     update_meal_contribution_amount_by_id, delete_meal_contribution_by_id,
     add_meal, add_shared_expense, get_meals,
+    add_meal_contribution, get_meal_by_number, get_meal_contributions,
 )
 from bot.i18n import t
 from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
@@ -366,6 +367,34 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
                 await prompt_targeted_expense_family(update, context, desc, amount)
                 return True
 
+            # A7. Admin typed custom contribution amount for an existing meal
+            if step == "contrib_amount":
+                try:
+                    amount = float(text)
+                    if amount <= 0:
+                        return False
+                except ValueError:
+                    return False
+                state = context.user_data.pop("admin_log_expense", None)
+                meal_id = state["meal_id"]
+                meal_number = state["meal_number"]
+                meal_name = state["meal_name"]
+                fid = state["family_id"]
+                fam_name = state["family_name"]
+
+                await add_meal_contribution(db_path, meal_id, fid, amount)
+                contributions = await get_meal_contributions(db_path, meal_id)
+                total = sum(c["amount"] for c in contributions)
+                context.user_data["last_action"] = {"type": "contribution", "meal_id": meal_id, "family_id": fid, "trip_id": trip["id"]}
+
+                await reply_ephemeral(
+                    update, context,
+                    t("admin_contrib_logged_success", lang, family_name=fam_name, amount=amount, number=meal_number, name=meal_name, total=total),
+                    parse_mode="Markdown",
+                )
+                await admin_edit_all_expenses_handler(update, context)
+                return True
+
     # B. Existing pending_edit_expense flow
     pending = context.user_data.get("pending_edit_expense")
     if not pending:
@@ -508,7 +537,7 @@ async def admin_log_flow_callback_handler(update: Update, context: ContextTypes.
         await query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
         return
 
-    # Step 2: Family selected -> Choose between Meal and Shared Expense
+    # Step 2: Family selected -> Choose existing meal to contribute or new expense type
     if data.startswith("admlog_fam_"):
         fid = int(data.replace("admlog_fam_", ""))
         families = await get_families(db_path, trip["id"])
@@ -526,14 +555,83 @@ async def admin_log_flow_callback_handler(update: Update, context: ContextTypes.
             "step": "type",
         }
 
-        buttons = [
-            [InlineKeyboardButton(t("btn_log_meal_for_member", lang), callback_data="admlog_type_meal")],
-            [InlineKeyboardButton(t("btn_log_shared_for_member", lang), callback_data="admlog_type_shared")],
-            [InlineKeyboardButton(t("btn_log_targeted_for_member", lang), callback_data="admlog_type_targeted")],
-            [InlineKeyboardButton(t("btn_back", lang), callback_data="admexp_log_prompt")],
-        ]
+        meals = await get_meals(db_path, trip["id"])
+        buttons = []
+        # Add existing meals in active trip (similar to user log expense menu)
+        for m in meals:
+            label = f"💳 #{m['meal_number']} {m['name']}"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"admlog_contrib_{m['meal_number']}")])
+
+        buttons.append([InlineKeyboardButton(t("btn_log_meal_for_member", lang), callback_data="admlog_type_meal")])
+        buttons.append([InlineKeyboardButton(t("btn_log_shared_for_member", lang), callback_data="admlog_type_shared")])
+        buttons.append([InlineKeyboardButton(t("btn_log_targeted_for_member", lang), callback_data="admlog_type_targeted")])
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data="admexp_log_prompt")])
+
         msg_text = t("admin_log_choose_type_title", lang, family_name=target_family["name"])
         await query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        return
+
+    # Step 2B: Contributed to existing meal -> Prompt amount presets or text
+    if data.startswith("admlog_contrib_"):
+        meal_number = int(data.replace("admlog_contrib_", ""))
+        state = context.user_data.get("admin_log_expense")
+        if not state:
+            await admin_edit_all_expenses_handler(update, context)
+            return
+
+        meal = await get_meal_by_number(db_path, trip["id"], meal_number)
+        if not meal:
+            await admin_edit_all_expenses_handler(update, context)
+            return
+
+        state["meal_id"] = meal["id"]
+        state["meal_number"] = meal_number
+        state["meal_name"] = meal["name"]
+        state["step"] = "contrib_amount"
+        state["timestamp"] = time.time()
+
+        PRESETS = [10.0, 20.0, 30.0, 50.0, 80.0, 100.0, 150.0, 200.0]
+        buttons = []
+        row = []
+        for amt in PRESETS:
+            label = f"${int(amt)}"
+            row.append(InlineKeyboardButton(label, callback_data=f"admlog_camt_{amt:.2f}"))
+            if len(row) == 4:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data=f"admlog_fam_{state['family_id']}")])
+
+        msg_text = t("admin_log_ask_contrib_amount", lang, number=meal_number, name=meal["name"], family_name=state["family_name"])
+        await query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        return
+
+    # Step 2C: Contributed amount preset chosen -> Save contribution!
+    if data.startswith("admlog_camt_"):
+        amount = float(data.replace("admlog_camt_", ""))
+        state = context.user_data.pop("admin_log_expense", None)
+        if not state:
+            await admin_edit_all_expenses_handler(update, context)
+            return
+
+        meal_id = state["meal_id"]
+        meal_number = state["meal_number"]
+        meal_name = state["meal_name"]
+        fid = state["family_id"]
+        fam_name = state["family_name"]
+
+        await add_meal_contribution(db_path, meal_id, fid, amount)
+        contributions = await get_meal_contributions(db_path, meal_id)
+        total = sum(c["amount"] for c in contributions)
+        context.user_data["last_action"] = {"type": "contribution", "meal_id": meal_id, "family_id": fid, "trip_id": trip["id"]}
+
+        await reply_ephemeral(
+            update, context,
+            t("admin_contrib_logged_success", lang, family_name=fam_name, amount=amount, number=meal_number, name=meal_name, total=total),
+            parse_mode="Markdown",
+        )
+        await admin_edit_all_expenses_handler(update, context)
         return
 
     # Step 3A: Chosen Shared Expense -> Prompt category presets or text

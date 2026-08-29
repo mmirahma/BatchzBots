@@ -67,15 +67,15 @@ STRINGS = {
         "fa": "👤 *ثبت هزینه برای اعضا*\nسفر: *{trip_name}*\n\nعضوی که هزینه را پرداخت کرده انتخاب کنید:",
     },
     "admin_log_choose_type_title": {
-        "en": "➕ *Log Expense for {family_name}*\n\nChoose expense type:",
-        "fa": "➕ *ثبت هزینه برای {family_name}*\n\nنوع هزینه را انتخاب کنید:",
+        "en": "➕ *Log Expense for {family_name}*\n\nSelect an existing meal to contribute to, or choose a new expense type:",
+        "fa": "➕ *ثبت هزینه برای {family_name}*\n\nیک وعده موجود را برای مشارکت انتخاب کنید یا نوع هزینه جدید را انتخاب نمایید:",
     },
-    "btn_log_meal_for_member": {"en": "🍽 Meal / Event", "fa": "🍽 وعده غذایی / رویداد"},
-    "btn_log_shared_for_member": {"en": "🪵 Shared Expense (All Families)", "fa": "🪵 هزینه مشترک (بین همه خانواده‌ها)"},
-    "btn_log_targeted_for_member": {"en": "🎯 Custom-Weighted Split", "fa": "🎯 هزینه با تقسیم و سهم سفارشی"},
+    "btn_log_meal_for_member": {"en": "🍽 New Meal Expense", "fa": "🍽 ثبت وعده غذایی جدید"},
+    "btn_log_shared_for_member": {"en": "🪵 General Shared Expense", "fa": "🪵 هزینه عمومی مشترک"},
+    "btn_log_targeted_for_member": {"en": "🎯 Specific Family Expense / Custom Split", "fa": "🎯 هزینه برای خانواده‌های خاص / تقسیم سفارشی"},
     "admin_log_ask_meal_name": {
-        "en": "🍽 *Log Meal for {family_name}*\n\nSelect meal or type custom name in chat:",
-        "fa": "🍽 *ثبت وعده برای {family_name}*\n\nنوع وعده را انتخاب کنید یا نام دلخواه تایپ کنید:",
+        "en": "🍽 *Log New Meal for {family_name}*\n\nSelect meal or type custom name in chat:",
+        "fa": "🍽 *ثبت وعده جدید برای {family_name}*\n\nنوع وعده را انتخاب کنید یا نام دلخواه تایپ کنید:",
     },
     "admin_log_ask_shared_cat": {
         "en": "🪵 *Log Shared Expense for {family_name}*\n\nSelect category or type description in chat:",
@@ -88,6 +88,14 @@ STRINGS = {
     "admin_log_ask_amount": {
         "en": "💰 *Amount for {name}*\nPaid by: *{family_name}*\n\nSelect amount or type a number in chat:",
         "fa": "💰 *مبلغ برای {name}*\nپرداخت‌کننده: *{family_name}*\n\nمبلغ را انتخاب کنید یا عدد دلخواه تایپ کنید:",
+    },
+    "admin_log_ask_contrib_amount": {
+        "en": "💰 *Contribute to Meal #{number} '{name}'*\nPaid by: *{family_name}*\n\nSelect amount or type a number in chat:",
+        "fa": "💰 *مشارکت در وعده #{number} '{name}'*\nپرداخت‌کننده: *{family_name}*\n\nمبلغ را انتخاب کنید یا عدد دلخواه تایپ کنید:",
+    },
+    "admin_contrib_logged_success": {
+        "en": "✅ Added contribution of *${amount:.2f}* to meal #{number} *{name}* for *{family_name}*. Total meal cost: *${total:.2f}*",
+        "fa": "✅ مبلغ *${amount:.2f}* به عنوان مشارکت در وعده #{number} *{name}* برای *{family_name}* ثبت شد. مجموع هزینه وعده: *${total:.2f}*",
     },
     "admin_expense_logged_success": {
         "en": "✅ Successfully logged *{description}* (*${amount:.2f}*) for *{family_name}*.",

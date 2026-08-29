@@ -697,6 +697,34 @@ async def test_admin_log_expense_for_other_members(db_path):
     assert boat_exp["family_id"] == f_bob
     assert boat_exp["grouping_id"] is not None
 
+    # 8. Admin logs a contribution to existing meal (Steak Dinner #1) for Maysam
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_admin}"
+    up.callback_query = query
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.edit_message_text.assert_called_once()
+    reply_markup = query.edit_message_text.call_args[1]["reply_markup"]
+    flat_data = [btn.callback_data for row in reply_markup.inline_keyboard for btn in row]
+    # Check that existing meal #1 is shown in buttons
+    assert "admlog_contrib_1" in flat_data
+
+    # Admin clicks contribute to meal #1
+    query.reset_mock()
+    query.data = "admlog_contrib_1"
+    await admin_log_flow_callback_handler(up, mock_context)
+    assert mock_context.user_data["admin_log_expense"]["step"] == "contrib_amount"
+
+    # Admin clicks amount preset $30.00
+    query.reset_mock()
+    query.data = "admlog_camt_30.00"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    # Verify meal #1 now has contributions from both Bob and Maysam
+    m1_contribs = await get_meal_contributions(db_path, meals[0]["id"])
+    assert len(m1_contribs) == 2
+    admin_contrib = next(c for c in m1_contribs if c["family_id"] == f_admin)
+    assert admin_contrib["amount"] == 30.0
+
 
 def test_admin_callback_pattern_routing():
     import re
