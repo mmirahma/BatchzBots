@@ -22,7 +22,20 @@ STRINGS = {
         "fa": "✏️ *ویرایش: {name}*\n💰 مبلغ فعلی: *${amount:.2f}*\n\nمبلغ جدید را از زیر انتخاب کنید یا یک عدد تایپ کنید:",
     },
     "btn_delete_expense": {"en": "❌ Delete Expense", "fa": "❌ حذف هزینه"},
+    "btn_back": {"en": "🔙 Back", "fa": "🔙 بازگشت"},
     "btn_back_to_list": {"en": "🔙 Back to Expenses", "fa": "🔙 بازگشت به لیست هزینه‌ها"},
+    "no_families": {
+        "en": "⚠️ No members have joined this trip yet.",
+        "fa": "⚠️ هنوز هیچ عضوی به این سفر ملحق نشده است.",
+    },
+    "invalid_weight": {
+        "en": "⚠️ Invalid weight. Please enter a positive number (e.g. 1.5):",
+        "fa": "⚠️ ضریب نامعتبر است. لطفاً یک عدد مثبت وارد کنید (مثلاً 1.5):",
+    },
+    "join_summary_table_header": {
+        "en": "📋 *Meal Attendance Status:*",
+        "fa": "📋 *وضعیت حضور در وعده‌ها:*",
+    },
     "expense_updated": {
         "en": "✅ Updated '{name}' to ${amount:.2f}",
         "fa": "✅ مبلغ '{name}' به ${amount:.2f} ویرایش شد",
