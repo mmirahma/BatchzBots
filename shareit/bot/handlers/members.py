@@ -76,12 +76,13 @@ def build_members_keyboard(trip: dict, members: list[dict], families: list[dict]
         InlineKeyboardButton(t("btn_refresh_members", lang), callback_data="mem_refresh"),
         InlineKeyboardButton(t("btn_done", lang), callback_data="mem_done"),
     ])
+    buttons.append([InlineKeyboardButton(t("btn_back_admin", lang), callback_data="menu_admin")])
 
     return InlineKeyboardMarkup(buttons)
 
 
 async def members_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /members or /addmembers command — display the group member roster."""
+    """Handle /members or /addmembers command — display the trip member roster (Admin only)."""
     if not await require_group(update, context):
         return
     await record_user_activity(update, context)
@@ -89,6 +90,15 @@ async def members_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(t("admin_only", lang))
+        else:
+            await reply_ephemeral(update, context, t("admin_only", lang))
+        return
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
@@ -119,6 +129,11 @@ async def member_select_callback_handler(update: Update, context: ContextTypes.D
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await query.edit_message_text(t("admin_only", lang))
+        return
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
@@ -188,6 +203,11 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await query.edit_message_text(t("admin_only", lang))
+        return
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
@@ -274,6 +294,16 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
 async def pending_member_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Handle text inputs for custom member name or custom weight."""
     if not update.message or not update.message.text:
+        return False
+
+    if not context.user_data.get("pending_custom_member_name") and "pending_custom_member_weight" not in context.user_data:
+        return False
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, update.effective_chat.id, update.effective_user):
+        context.user_data.pop("pending_custom_member_name", None)
+        context.user_data.pop("pending_custom_member_weight", None)
+        context.user_data.pop("pending_custom_member_name_val", None)
         return False
 
     text = update.message.text.strip()

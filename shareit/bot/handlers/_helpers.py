@@ -150,3 +150,44 @@ async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return trip, None, lang
 
     return trip, family, lang
+
+
+async def is_admin_or_owner(bot, chat_id: int, user) -> bool:
+    """
+    Check if the user is 'Maysam Mir' or the creator / owner of the group chat.
+    """
+    if not user:
+        return False
+
+    # Check for Maysam Mir by name, username, etc.
+    full_name = (user.full_name or f"{user.first_name or ''} {user.last_name or ''}").strip().lower()
+    username = (user.username or "").strip().lower()
+
+    if (
+        "maysam mir" in full_name
+        or ("maysam" in full_name and "mir" in full_name)
+        or "میثم" in full_name
+        or username in ("mmirahma", "maysammir", "maysam_mir")
+        or "maysam" in username
+    ):
+        return True
+
+    # Check if user is Telegram group chat creator / owner
+    if bot and chat_id:
+        try:
+            member = await bot.get_chat_member(chat_id, user.id)
+            if getattr(member, "status", "") in ("creator",):
+                return True
+        except Exception:
+            pass
+
+        try:
+            admins = await bot.get_chat_administrators(chat_id)
+            for admin in admins:
+                admin_user = getattr(admin, "user", None)
+                if admin_user and admin_user.id == user.id and getattr(admin, "status", "") == "creator":
+                    return True
+        except Exception as e:
+            logger.warning(f"Could not verify chat administrator status for user {user.id} in chat {chat_id}: {e}")
+
+    return False

@@ -84,7 +84,6 @@ async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             row = []
     if row:
         buttons.append(row)
-    buttons.append([InlineKeyboardButton(t("btn_members", lang), callback_data="menu_members")])
     inline_kbd = InlineKeyboardMarkup(buttons)
 
     msg_text = f"🏕 *{trip_name}*\n\n✅ {t('trip_created', lang, name=trip_name)}\n\n{t('join_select_weight', lang)}"
@@ -382,7 +381,6 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     status_buttons = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(t("btn_members", lang), callback_data="menu_members"),
             InlineKeyboardButton(t("btn_export_excel", lang), callback_data="export_excel"),
         ]
     ])

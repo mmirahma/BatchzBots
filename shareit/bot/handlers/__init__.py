@@ -2,7 +2,7 @@
 
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
-from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler
+from bot.handlers.menu import menu_handler, menu_callback_handler, text_menu_handler, admin_menu_handler
 from bot.handlers.trip import newtrip_handler, endtrip_handler, status_handler, resumetrip_handler
 from bot.handlers.family import join_handler, join_callback_handler, join_meal_attendance_callback_handler
 from bot.handlers.meal import (
@@ -39,6 +39,7 @@ def register_handlers(app: Application) -> None:
     """Register all command and callback handlers."""
     app.add_handler(CommandHandler("menu", menu_handler))
     app.add_handler(CommandHandler("start", menu_handler))
+    app.add_handler(CommandHandler("admin", admin_menu_handler))
     app.add_handler(CommandHandler("newtrip", newtrip_handler))
     app.add_handler(CommandHandler("endtrip", endtrip_handler))
     app.add_handler(CommandHandler("resumetrip", resumetrip_handler))

@@ -8,11 +8,15 @@ from bot.db import (
     init_db, create_trip, add_family, get_families, get_family,
     save_chat_member, add_shared_expense,
 )
+from bot.handlers._helpers import is_admin_or_owner
+from bot.handlers.menu import get_reply_keyboard, admin_menu_handler
+from bot.handlers.trip import status_handler
 from bot.handlers.members import (
     get_all_group_members, build_members_keyboard,
     members_handler, member_select_callback_handler,
     member_action_callback_handler, pending_member_text_handler,
 )
+from bot.i18n import t
 
 
 @pytest_asyncio.fixture
@@ -29,15 +33,60 @@ def create_mock_user(user_id: int, full_name: str, username: str = None, is_bot:
     user.id = user_id
     user.full_name = full_name
     user.first_name = full_name.split()[0]
+    user.last_name = " ".join(full_name.split()[1:]) if len(full_name.split()) > 1 else ""
     user.username = username
     user.is_bot = is_bot
     return user
 
 
-def create_mock_admin(user_id: int, full_name: str, username: str = None, is_bot: bool = False):
+def create_mock_admin(user_id: int, full_name: str, username: str = None, is_bot: bool = False, status: str = "administrator"):
     admin = MagicMock()
+    admin.status = status
     admin.user = create_mock_user(user_id, full_name, username, is_bot)
     return admin
+
+
+@pytest.mark.asyncio
+async def test_is_admin_or_owner():
+    mock_bot = MagicMock()
+
+    # 1. Maysam Mir by full name
+    u1 = create_mock_user(101, "Maysam Mir", "some_user")
+    assert await is_admin_or_owner(mock_bot, 1000, u1) is True
+
+    # 2. Maysam Mir by username
+    u2 = create_mock_user(102, "John Doe", "mmirahma")
+    assert await is_admin_or_owner(mock_bot, 1000, u2) is True
+
+    # 3. Chat Owner / Creator via get_chat_member
+    u3 = create_mock_user(103, "Alice Owner", "alice")
+    owner_member = MagicMock()
+    owner_member.status = "creator"
+    mock_bot.get_chat_member = AsyncMock(return_value=owner_member)
+    assert await is_admin_or_owner(mock_bot, 1000, u3) is True
+
+    # 4. Regular user (not Maysam, not creator)
+    u4 = create_mock_user(104, "Bob Member", "bob")
+    regular_member = MagicMock()
+    regular_member.status = "member"
+    mock_bot.get_chat_member = AsyncMock(return_value=regular_member)
+    mock_bot.get_chat_administrators = AsyncMock(return_value=[])
+    assert await is_admin_or_owner(mock_bot, 1000, u4) is False
+
+
+@pytest.mark.asyncio
+async def test_reply_keyboards_for_admin_and_member():
+    # Admin joined keyboard has btn_admin and no btn_members
+    kb_admin = get_reply_keyboard(lang="en", is_joined=True, is_admin=True)
+    flat_admin = [btn.text for row in kb_admin.keyboard for btn in row]
+    assert t("btn_admin", "en") in flat_admin
+    assert t("btn_members", "en") not in flat_admin
+
+    # Regular member joined keyboard has neither btn_admin nor btn_members
+    kb_member = get_reply_keyboard(lang="en", is_joined=True, is_admin=False)
+    flat_member = [btn.text for row in kb_member.keyboard for btn in row]
+    assert t("btn_admin", "en") not in flat_member
+    assert t("btn_members", "en") not in flat_member
 
 
 @pytest.mark.asyncio
@@ -85,6 +134,32 @@ async def test_build_members_keyboard(db_path):
     assert "(Not in trip)" in buttons[1][0].text
     assert buttons[1][0].callback_data == "mem_sel_102"
 
+    # Action buttons contain Back to Admin
+    flat_callbacks = [btn.callback_data for row in buttons for btn in row]
+    assert "menu_admin" in flat_callbacks
+
+
+@pytest.mark.asyncio
+async def test_members_handler_admin_permission_check(db_path):
+    trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
+
+    mock_update = MagicMock()
+    mock_update.effective_chat.type = "group"
+    mock_update.effective_chat.id = 1000
+    mock_update.effective_user = create_mock_user(202, "Regular Bob", "reg_bob")
+    mock_update.callback_query = None
+    mock_update.effective_message.reply_text = AsyncMock()
+
+    mock_context = MagicMock()
+    mock_context.bot_data = {"db_path": db_path}
+    mock_context.bot.get_chat_member = AsyncMock(return_value=MagicMock(status="member"))
+    mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
+
+    # Regular user is rejected with admin_only message
+    await members_handler(mock_update, mock_context)
+    mock_update.effective_message.reply_text.assert_called_once()
+    assert "only available to the group owner and Maysam Mir" in mock_update.effective_message.reply_text.call_args[0][0]
+
 
 @pytest.mark.asyncio
 async def test_member_select_and_set_weight(db_path):
@@ -92,7 +167,7 @@ async def test_member_select_and_set_weight(db_path):
     trip = {"id": trip_id, "name": "Summer Trip", "chat_id": 1000}
     await save_chat_member(db_path, 1000, 102, "Bob Vance")
 
-    # 1. Simulate setting weight for Bob (102) with weight 3.0
+    # Simulate admin setting weight for Bob (102) with weight 3.0
     mock_update = MagicMock()
     mock_query = MagicMock()
     mock_query.data = "mem_setw_102_3.0"
@@ -100,7 +175,8 @@ async def test_member_select_and_set_weight(db_path):
     mock_query.edit_message_text = AsyncMock()
     mock_update.callback_query = mock_query
     mock_update.effective_chat.id = 1000
-    mock_update.effective_user.id = 101
+    # Maysam Mir as admin
+    mock_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
 
     mock_context = MagicMock()
     mock_context.bot_data = {"db_path": db_path}
@@ -115,7 +191,7 @@ async def test_member_select_and_set_weight(db_path):
     assert family["weight"] == 3.0
     assert "Bob Vance" in family["name"]
 
-    # 2. Update Bob's weight to 4.5
+    # Update Bob's weight to 4.5
     mock_query.data = "mem_setw_102_4.5"
     await member_action_callback_handler(mock_update, mock_context)
     updated_family = await get_family(db_path, trip_id, 102)
@@ -134,7 +210,7 @@ async def test_member_removal_and_skip(db_path):
     mock_query.edit_message_text = AsyncMock()
     mock_update.callback_query = mock_query
     mock_update.effective_chat.id = 1000
-    mock_update.effective_user.id = 101
+    mock_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
 
     mock_context = MagicMock()
     mock_context.bot_data = {"db_path": db_path}
@@ -152,7 +228,7 @@ async def test_member_removal_and_skip(db_path):
 async def test_member_custom_name_and_weight_text_flow(db_path):
     trip_id = await create_trip(db_path, "Summer Trip", chat_id=1000)
 
-    # Step 1: User triggers custom member prompt
+    # Step 1: Admin triggers custom member prompt
     mock_update = MagicMock()
     mock_query = MagicMock()
     mock_query.data = "mem_custom"
@@ -160,7 +236,7 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     mock_query.edit_message_text = AsyncMock()
     mock_update.callback_query = mock_query
     mock_update.effective_chat.id = 1000
-    mock_update.effective_user.id = 101
+    mock_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
 
     mock_context = MagicMock()
     mock_context.bot_data = {"db_path": db_path}
@@ -170,10 +246,10 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     await member_action_callback_handler(mock_update, mock_context)
     assert mock_context.user_data.get("pending_custom_member_name") is True
 
-    # Step 2: User types name "Guest Uncle Joe"
+    # Step 2: Admin types name "Guest Uncle Joe"
     msg_update = MagicMock()
     msg_update.effective_chat.id = 1000
-    msg_update.effective_user.id = 101
+    msg_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
     msg_update.message.text = "Guest Uncle Joe"
     msg_update.message.reply_text = AsyncMock()
     msg_update.effective_message.reply_text = AsyncMock()
@@ -183,7 +259,7 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     assert handled is True
     assert mock_context.user_data.get("pending_custom_member_name_val") == "Guest Uncle Joe"
 
-    # Step 3: User taps weight button 2.0 for custom member
+    # Step 3: Admin taps weight button 2.0 for custom member
     btn_update = MagicMock()
     btn_query = MagicMock()
     btn_query.data = "mem_custfam_w_2.0"
@@ -191,7 +267,7 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     btn_query.edit_message_text = AsyncMock()
     btn_update.callback_query = btn_query
     btn_update.effective_chat.id = 1000
-    btn_update.effective_user.id = 101
+    btn_update.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
     mock_context.bot.get_chat_administrators = AsyncMock(return_value=[])
 
     await member_action_callback_handler(btn_update, mock_context)
@@ -200,3 +276,4 @@ async def test_member_custom_name_and_weight_text_flow(db_path):
     assert len(families) == 1
     assert families[0]["name"] == "Guest Uncle Joe"
     assert families[0]["weight"] == 2.0
+

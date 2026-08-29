@@ -8,16 +8,24 @@ from bot.handlers.family import WEIGHT_OPTIONS
 from bot.i18n import t
 
 
-def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboardMarkup:
+def get_reply_keyboard(lang: str = "en", is_joined: bool = True, is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Build the persistent bottom custom ReplyKeyboard."""
     if not is_joined:
-        keyboard = [[KeyboardButton(t("btn_join", lang)), KeyboardButton(t("btn_members", lang))]]
+        if is_admin:
+            keyboard = [[KeyboardButton(t("btn_join", lang)), KeyboardButton(t("btn_admin", lang))]]
+        else:
+            keyboard = [[KeyboardButton(t("btn_join", lang))]]
     else:
+        if is_admin:
+            admin_row = [KeyboardButton(t("btn_admin", lang)), KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))]
+        else:
+            admin_row = [KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))]
+
         keyboard = [
             [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_edit_my_expenses", lang))],
             [KeyboardButton(t("btn_my_share", lang)), KeyboardButton(t("btn_meals", lang))],
             [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
-            [KeyboardButton(t("btn_members", lang)), KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))],
+            admin_row,
         ]
     return ReplyKeyboardMarkup(
         keyboard,
@@ -41,9 +49,12 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
+    from bot.handlers._helpers import is_admin_or_owner
+    is_admin = await is_admin_or_owner(context.bot, chat_id, update.effective_user)
+
     family = await get_family(db_path, trip["id"], user_id)
     is_joined = family is not None
-    reply_kbd = get_reply_keyboard(lang, is_joined=is_joined)
+    reply_kbd = get_reply_keyboard(lang, is_joined=is_joined, is_admin=is_admin)
 
     if not is_joined:
         from bot.handlers.family import WEIGHT_OPTIONS
@@ -76,6 +87,40 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
 
 
+async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /admin or 👑 Admin button tap — display admin management dashboard."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await reply_ephemeral(update, context, t("admin_only", lang))
+        return
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    buttons = [
+        [InlineKeyboardButton(t("btn_members", lang), callback_data="menu_members")],
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    text = t("admin_menu_title", lang, trip_name=trip["name"])
+
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        except BadRequest as e:
+            if "Message is not modified" not in str(e):
+                raise
+    else:
+        await reply_ephemeral(update, context, text, reply_markup=keyboard, parse_mode="Markdown")
+
+
 async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Intercept persistent bottom ReplyKeyboard button presses and text input."""
     if not update.message or not update.message.text:
@@ -97,6 +142,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     btn_status_fa = t("btn_status", "fa")
     btn_settle_en = t("btn_settle", "en")
     btn_settle_fa = t("btn_settle", "fa")
+    btn_admin_en = t("btn_admin", "en")
+    btn_admin_fa = t("btn_admin", "fa")
     btn_lang_en = t("btn_lang", "en")
     btn_lang_fa = t("btn_lang", "fa")
     btn_help_en = t("btn_help", "en")
@@ -117,6 +164,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         btn_meals_en, btn_meals_fa,
         btn_status_en, btn_status_fa,
         btn_settle_en, btn_settle_fa,
+        btn_admin_en, btn_admin_fa,
         btn_members_en, btn_members_fa,
         btn_lang_en, btn_lang_fa,
         btn_help_en, btn_help_fa,
@@ -178,6 +226,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif text in (btn_settle_en, btn_settle_fa):
         from bot.handlers.settle import settle_handler
         await settle_handler(update, context)
+    elif text in (btn_admin_en, btn_admin_fa):
+        await admin_menu_handler(update, context)
     elif text in (btn_members_en, btn_members_fa):
         from bot.handlers.members import members_handler
         await members_handler(update, context)
@@ -225,6 +275,8 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_settle":
             from bot.handlers.settle import settle_handler
             await settle_handler(update, context)
+        elif data in ("menu_admin", "admin_menu"):
+            await admin_menu_handler(update, context)
         elif data == "menu_members":
             from bot.handlers.members import members_handler
             await members_handler(update, context)
