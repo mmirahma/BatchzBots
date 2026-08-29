@@ -698,5 +698,31 @@ async def test_admin_log_expense_for_other_members(db_path):
     assert boat_exp["grouping_id"] is not None
 
 
+def test_admin_callback_pattern_routing():
+    import re
+    p_select = re.compile(r"^admexp_(meal|expense)_\d+$")
+    p_action = re.compile(r"^(admexpamt_|admexpdel_|admexp_list)")
+    p_log = re.compile(r"^(admexp_log_prompt|admlog_)")
+
+    # admexp_log_prompt MUST match p_log and NOT match p_select or p_action
+    assert p_log.match("admexp_log_prompt") is not None
+    assert p_select.match("admexp_log_prompt") is None
+    assert p_action.match("admexp_log_prompt") is None
+
+    # admexp_list MUST match p_action and NOT match p_select or p_log
+    assert p_action.match("admexp_list") is not None
+    assert p_select.match("admexp_list") is None
+    assert p_log.match("admexp_list") is None
+
+    # admexp_meal_15 MUST match p_select and NOT match p_log
+    assert p_select.match("admexp_meal_15") is not None
+    assert p_log.match("admexp_meal_15") is None
+
+    # admlog_fam_2 MUST match p_log
+    assert p_log.match("admlog_fam_2") is not None
+    assert p_select.match("admlog_fam_2") is None
+
+
+
 
 
