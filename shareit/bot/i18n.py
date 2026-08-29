@@ -48,6 +48,37 @@ STRINGS = {
     "btn_help": {"en": "❓ Help", "fa": "❓ راهنما"},
     "btn_my_share": {"en": "📊 My Share", "fa": "📊 سهم من"},
     "btn_export_excel": {"en": "📊 Export Excel", "fa": "📊 خروجی اکسل"},
+    "btn_members": {"en": "👥 Group Members", "fa": "👥 اعضای گروه"},
+    "members_title": {
+        "en": "👥 *Group Members & Trip Roster*\nTrip: *{trip_name}*\n\nTap a member below to add them to the trip, adjust their weight, or skip/remove them:",
+        "fa": "👥 *اعضای گروه و لیست سفر*\nسفر: *{trip_name}*\n\nبرای عضویت در سفر، تنظیم سهم، یا حذف/رد کردن روی نام هر فرد کلیک کنید:",
+    },
+    "member_config_title": {
+        "en": "👤 *Manage Member: {name}*\nStatus: *{status}*\n\nSelect a share weight to add/update, or skip/remove from this trip:",
+        "fa": "👤 *مدیریت عضو: {name}*\nوضعیت: *{status}*\n\nبرای عضویت/ویرایش یک سهم انتخاب کنید، یا از این سفر حذف کنید:",
+    },
+    "status_joined": {"en": "In Trip (Weight: {weight})", "fa": "عضو در سفر (سهم: {weight})"},
+    "status_not_joined": {"en": "Not in trip (Skipped)", "fa": "عدم حضور در سفر (رد شده)"},
+    "btn_remove_member": {"en": "🚫 Skip / Remove from Trip", "fa": "🚫 حذف از سفر / رد کردن"},
+    "btn_custom_member": {"en": "➕ Add Custom Family Name", "fa": "➕ افزودن نام دلخواه خانواده"},
+    "btn_refresh_members": {"en": "🔄 Refresh Group Members", "fa": "🔄 بروزرسانی اعضای گروه"},
+    "btn_back_members": {"en": "🔙 Back to Members", "fa": "🔙 بازگشت به لیست اعضا"},
+    "btn_custom_weight": {"en": "✏️ Custom Weight", "fa": "✏️ سهم دلخواه"},
+    "member_added_success": {"en": "✅ Added *{name}* with weight {weight}.", "fa": "✅ *{name}* با سهم {weight} به سفر اضافه شد."},
+    "member_updated_success": {"en": "✅ Updated *{name}* weight to {weight}.", "fa": "✅ سهم *{name}* به {weight} تغییر یافت."},
+    "member_removed_success": {"en": "✅ Removed *{name}* from the trip.", "fa": "✅ *{name}* از سفر حذف شد."},
+    "member_cannot_remove_active": {
+        "en": "⚠️ Cannot remove *{name}* because they have logged expenses or contributions.",
+        "fa": "⚠️ امکان حذف *{name}* وجود ندارد چون هزینه یا پرداختی ثبت کرده است.",
+    },
+    "prompt_custom_member_name": {
+        "en": "✏️ *Add Custom Family*\n\nPlease type the name of the family to add (e.g. *Smith Family*):",
+        "fa": "✏️ *افزودن نام دلخواه خانواده*\n\nلطفاً نام خانواده مورد نظر را تایپ کنید (مثلاً *خانواده احمدی*):",
+    },
+    "prompt_custom_member_weight": {
+        "en": "✏️ Type the share weight number (e.g. 2.25) for *{name}*:",
+        "fa": "✏️ لطفاً ضریب سهم (مثلاً ۲.۲۵) را برای *{name}* تایپ کنید:",
+    },
     "export_caption": {
         "en": "📊 *Excel Expense Report — {trip_name}*\n\nIncludes detailed itemized breakdown, family cost shares, and bank balance reconciliation.",
         "fa": "📊 *گزارش اکسل هزینه‌ها — {trip_name}*\n\nشامل جزئیات کامل هزینه‌ها، سهم هر خانواده و تراز نهایی بانک.",

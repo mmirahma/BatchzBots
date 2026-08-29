@@ -37,8 +37,24 @@ def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT
             schedule_message_deletion(update.effective_chat.id, update.effective_message.message_id, context)
 
 
+async def record_user_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Record active Telegram user as a known group chat member in database."""
+    user = update.effective_user
+    chat = update.effective_chat
+    db_path = context.bot_data.get("db_path") if context and context.bot_data else None
+    if user and chat and db_path and not user.is_bot and chat.type in ("group", "supergroup"):
+        from bot.db import save_chat_member
+        name = user.full_name or user.first_name or "User"
+        username = user.username
+        try:
+            await save_chat_member(db_path, chat.id, user.id, name, username)
+        except Exception as e:
+            logger.warning(f"Failed to record chat member {user.id} in chat {chat.id}: {e}")
+
+
 async def reply_ephemeral(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> Message | None:
     """Send a reply that auto-deletes after 1 minute, and schedule deletion of user trigger message."""
+    await record_user_activity(update, context)
     target = update.effective_message
     if not target and update.callback_query:
         target = update.callback_query.message

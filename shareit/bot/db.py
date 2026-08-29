@@ -69,6 +69,14 @@ async def init_db(db_path: str) -> None:
                 amount REAL NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
+            CREATE TABLE IF NOT EXISTS chat_members (
+                chat_id INTEGER NOT NULL,
+                telegram_user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                username TEXT,
+                last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (chat_id, telegram_user_id)
+            );
         """)
         # Migrations for existing DB files without grouping_id column
         async with db.execute("PRAGMA table_info(meals)") as cursor:
@@ -80,6 +88,15 @@ async def init_db(db_path: str) -> None:
             cols = [row[1] for row in await cursor.fetchall()]
             if "grouping_id" not in cols:
                 await db.execute("ALTER TABLE shared_expenses ADD COLUMN grouping_id INTEGER REFERENCES groupings(id)")
+
+        # Seed chat_members from historical families table
+        await db.execute("""
+            INSERT OR IGNORE INTO chat_members (chat_id, telegram_user_id, name, username)
+            SELECT DISTINCT t.chat_id, f.telegram_user_id, f.name, NULL
+            FROM families f
+            JOIN trips t ON f.trip_id = t.id
+            WHERE f.telegram_user_id IS NOT NULL AND f.telegram_user_id > 0
+        """)
 
         await db.commit()
 
@@ -562,4 +579,67 @@ async def update_meal_contribution_amount_by_id(db_path: str, contribution_id: i
     async with aiosqlite.connect(db_path) as db:
         await db.execute("UPDATE meal_contributions SET amount = ? WHERE id = ?", (amount, contribution_id))
         await db.commit()
+
+
+# --- Chat Members & Family Management ---
+
+async def save_chat_member(
+    db_path: str, chat_id: int, telegram_user_id: int, name: str, username: str | None = None
+) -> None:
+    """Record or update a seen group chat member."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "INSERT INTO chat_members (chat_id, telegram_user_id, name, username, last_seen) "
+            "VALUES (?, ?, ?, ?, datetime('now')) "
+            "ON CONFLICT(chat_id, telegram_user_id) DO UPDATE SET "
+            "name = excluded.name, "
+            "username = COALESCE(excluded.username, chat_members.username), "
+            "last_seen = excluded.last_seen",
+            (chat_id, telegram_user_id, name, username),
+        )
+        await db.commit()
+
+
+async def get_known_chat_members(db_path: str, chat_id: int) -> list[dict]:
+    """Retrieve all known members for a group chat, sorted by most recently seen."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM chat_members WHERE chat_id = ? ORDER BY last_seen DESC",
+            (chat_id,),
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_family_by_id(db_path: str, family_id: int) -> dict | None:
+    """Get a family by its primary key ID."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM families WHERE id = ?", (family_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+
+async def remove_family_from_trip(db_path: str, trip_id: int, family_id: int) -> bool:
+    """
+    Remove a family from a trip if they have no logged expenses or meal contributions.
+    Returns True if successfully removed, False if prevented due to activity.
+    """
+    active_ids = await get_families_with_activity(db_path, trip_id)
+    if family_id in active_ids:
+        return False
+
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "DELETE FROM meal_absences WHERE family_id = ? AND meal_id IN (SELECT id FROM meals WHERE trip_id = ?)",
+            (family_id, trip_id),
+        )
+        await db.execute(
+            "DELETE FROM grouping_members WHERE family_id = ? AND grouping_id IN (SELECT id FROM groupings WHERE trip_id = ?)",
+            (family_id, trip_id),
+        )
+        await db.execute("DELETE FROM families WHERE id = ? AND trip_id = ?", (family_id, trip_id))
+        await db.commit()
+        return True
+
 

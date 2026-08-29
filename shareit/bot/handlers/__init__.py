@@ -21,6 +21,11 @@ from bot.handlers.corrections import (
 )
 from bot.handlers.utility import lang_handler, help_handler, lang_callback_handler, export_handler
 from bot.handlers.info import meals_handler, history_handler, my_share_handler
+from bot.handlers.members import (
+    members_handler,
+    member_select_callback_handler,
+    member_action_callback_handler,
+)
 
 
 from bot.handlers.edit_expenses import (
@@ -39,6 +44,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("resumetrip", resumetrip_handler))
     app.add_handler(CommandHandler("status", status_handler))
     app.add_handler(CommandHandler("join", join_handler))
+    app.add_handler(CommandHandler("members", members_handler))
+    app.add_handler(CommandHandler("addmembers", members_handler))
     app.add_handler(CommandHandler("meal", meal_handler))
     app.add_handler(CommandHandler("contribute", contribute_handler))
     app.add_handler(CommandHandler("skip", skip_handler))
@@ -59,6 +66,8 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern=r"^menu_"))
     app.add_handler(CallbackQueryHandler(join_callback_handler, pattern=r"^join_"))
     app.add_handler(CallbackQueryHandler(join_meal_attendance_callback_handler, pattern=r"^jmat_"))
+    app.add_handler(CallbackQueryHandler(member_select_callback_handler, pattern=r"^mem_sel_"))
+    app.add_handler(CallbackQueryHandler(member_action_callback_handler, pattern=r"^(mem_list|mem_refresh|mem_done|mem_custom|mem_custw_|mem_setw_|mem_del_|mem_custfam_w_)"))
     app.add_handler(CallbackQueryHandler(contribute_callback_handler, pattern=r"^contrib_"))
     app.add_handler(CallbackQueryHandler(skip_callback_handler, pattern=r"^skip_"))
     app.add_handler(CallbackQueryHandler(meal_preset_callback_handler, pattern=r"^pmeal_"))

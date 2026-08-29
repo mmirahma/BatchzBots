@@ -259,3 +259,48 @@ async def test_delete_meal_cascade_contributions(db_path):
     meals_after = await get_meals(db_path, trip_id)
     assert len(meals_after) == 0
 
+
+@pytest.mark.asyncio
+async def test_save_and_get_chat_members(db_path):
+    from bot.db import save_chat_member, get_known_chat_members
+    await save_chat_member(db_path, chat_id=500, telegram_user_id=101, name="Alice", username="alice_tg")
+    await save_chat_member(db_path, chat_id=500, telegram_user_id=102, name="Bob", username=None)
+
+    members = await get_known_chat_members(db_path, chat_id=500)
+    assert len(members) == 2
+    names = {m["name"] for m in members}
+    assert "Alice" in names
+    assert "Bob" in names
+
+    # Update Alice's name
+    await save_chat_member(db_path, chat_id=500, telegram_user_id=101, name="Alice Smith", username="alice_tg")
+    members_updated = await get_known_chat_members(db_path, chat_id=500)
+    assert len(members_updated) == 2
+    alice = next(m for m in members_updated if m["telegram_user_id"] == 101)
+    assert alice["name"] == "Alice Smith"
+
+
+@pytest.mark.asyncio
+async def test_remove_family_from_trip(db_path):
+    from bot.db import remove_family_from_trip, get_family_by_id
+    trip_id = await create_trip(db_path, "Removal Test", chat_id=600)
+    f1 = await add_family(db_path, trip_id, "Family 1", 2.0, telegram_user_id=11)
+    f2 = await add_family(db_path, trip_id, "Family 2", 1.5, telegram_user_id=12)
+
+    # Family 2 logs an expense
+    await add_shared_expense(db_path, trip_id, f2, "Charcoal", 25.0)
+
+    # Attempt to remove Family 2 (should fail because they have active expenses)
+    removed_f2 = await remove_family_from_trip(db_path, trip_id, f2)
+    assert removed_f2 is False
+    assert await get_family_by_id(db_path, f2) is not None
+
+    # Remove Family 1 (should succeed as they have no expenses/contributions)
+    removed_f1 = await remove_family_from_trip(db_path, trip_id, f1)
+    assert removed_f1 is True
+    assert await get_family_by_id(db_path, f1) is None
+    families = await get_families(db_path, trip_id)
+    assert len(families) == 1
+    assert families[0]["id"] == f2
+
+

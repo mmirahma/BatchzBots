@@ -11,13 +11,13 @@ from bot.i18n import t
 def get_reply_keyboard(lang: str = "en", is_joined: bool = True) -> ReplyKeyboardMarkup:
     """Build the persistent bottom custom ReplyKeyboard."""
     if not is_joined:
-        keyboard = [[KeyboardButton(t("btn_join", lang))]]
+        keyboard = [[KeyboardButton(t("btn_join", lang)), KeyboardButton(t("btn_members", lang))]]
     else:
         keyboard = [
             [KeyboardButton(t("btn_log_expense", lang)), KeyboardButton(t("btn_edit_my_expenses", lang))],
             [KeyboardButton(t("btn_my_share", lang)), KeyboardButton(t("btn_meals", lang))],
             [KeyboardButton(t("btn_status", lang)), KeyboardButton(t("btn_settle", lang))],
-            [KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))],
+            [KeyboardButton(t("btn_members", lang)), KeyboardButton(t("btn_lang", lang)), KeyboardButton(t("btn_help", lang))],
         ]
     return ReplyKeyboardMarkup(
         keyboard,
@@ -103,6 +103,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     btn_help_fa = t("btn_help", "fa")
     btn_join_en = t("btn_join", "en")
     btn_join_fa = t("btn_join", "fa")
+    btn_members_en = t("btn_members", "en")
+    btn_members_fa = t("btn_members", "fa")
 
     btn_edit_my_expenses_en = t("btn_edit_my_expenses", "en")
     btn_edit_my_expenses_fa = t("btn_edit_my_expenses", "fa")
@@ -115,6 +117,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         btn_meals_en, btn_meals_fa,
         btn_status_en, btn_status_fa,
         btn_settle_en, btn_settle_fa,
+        btn_members_en, btn_members_fa,
         btn_lang_en, btn_lang_fa,
         btn_help_en, btn_help_fa,
         btn_join_en, btn_join_fa,
@@ -131,6 +134,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         or context.user_data.get("pending_targeted_expense_amt_prompt")
         or context.user_data.get("pending_contribute")
         or context.user_data.get("pending_edit_expense")
+        or context.user_data.get("pending_custom_member_name")
+        or context.user_data.get("pending_custom_member_weight")
     )
 
     if not is_button and not has_pending_input:
@@ -147,7 +152,8 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             "pending_expense_prompt", "pending_expense_desc", "pending_expense_amount_prompt",
             "pending_targeted_expense_desc", "pending_targeted_expense_amt_prompt",
             "pending_contribute", "pending_edit_expense", "targeted_expense_desc",
-            "targeted_expense_weights"
+            "targeted_expense_weights", "pending_custom_member_name", "pending_custom_member_weight",
+            "pending_custom_member_name_val"
         ):
             context.user_data.pop(key, None)
 
@@ -172,6 +178,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif text in (btn_settle_en, btn_settle_fa):
         from bot.handlers.settle import settle_handler
         await settle_handler(update, context)
+    elif text in (btn_members_en, btn_members_fa):
+        from bot.handlers.members import members_handler
+        await members_handler(update, context)
     elif text in (btn_lang_en, btn_lang_fa):
         from bot.handlers.utility import prompt_lang_preset
         await prompt_lang_preset(update, context)
@@ -182,6 +191,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         from bot.handlers.family import join_handler
         await join_handler(update, context)
     else:
+        from bot.handlers.members import pending_member_text_handler
+        if await pending_member_text_handler(update, context):
+            return
         from bot.handlers.edit_expenses import pending_edit_expense_text_handler
         if await pending_edit_expense_text_handler(update, context):
             return
@@ -213,6 +225,9 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         elif data == "menu_settle":
             from bot.handlers.settle import settle_handler
             await settle_handler(update, context)
+        elif data == "menu_members":
+            from bot.handlers.members import members_handler
+            await members_handler(update, context)
         elif data == "menu_contrib":
             from bot.handlers.meal import contribute_handler
             await contribute_handler(update, context)

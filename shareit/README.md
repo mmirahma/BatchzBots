@@ -65,6 +65,7 @@ Add the bot to your camping group chat, then:
 |---------|-------------|
 | `/newtrip <name>` | Create a new trip |
 | `/join <weight>` | Join with share weight |
+| `/members` | List group members & manage trip roster / weights |
 | `/meal <name> <amount>` | Log a meal |
 | `/contribute <#> <amount>` | Add to existing meal |
 | `/skip` | Mark absent from a meal |
