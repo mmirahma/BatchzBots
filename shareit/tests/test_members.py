@@ -921,6 +921,120 @@ async def test_my_share_handler_precision_and_groupings(db_path):
     assert "$20.00" in output_text  # Firewood share
 
 
+@pytest.mark.asyncio
+async def test_trip_lock_and_unlock_admin_flow(db_path):
+    from bot.handlers.menu import lock_trip_handler, unlock_trip_handler, admin_lock_callback_handler
+    from bot.db import is_trip_locked
+
+    trip_id = await create_trip(db_path, "Summer Trip", 1111)
+
+    # 1. Non-admin attempts to lock trip
+    mock_up_user = MagicMock()
+    mock_up_user.effective_chat.id = 1111
+    mock_up_user.effective_chat.type = "group"
+    mock_up_user.effective_user = create_mock_user(200, "Regular User", "regular_user")
+    mock_up_user.callback_query = None
+    mock_up_user.effective_message.reply_text = AsyncMock()
+
+    mock_bot = MagicMock()
+    mock_bot.get_chat_administrators = AsyncMock(return_value=[create_mock_admin(1, "Maysam Mir", "mmirahma")])
+    mock_bot.get_chat_member = AsyncMock(return_value=MagicMock(status="member"))
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+
+    await lock_trip_handler(mock_up_user, mock_ctx)
+    assert await is_trip_locked(db_path, trip_id) is False
+
+    # 2. Admin locks trip via /lock
+    mock_up_admin = MagicMock()
+    mock_up_admin.effective_chat.id = 1111
+    mock_up_admin.effective_chat.type = "group"
+    mock_up_admin.effective_user = create_mock_user(1, "Maysam Mir", "mmirahma")
+    mock_up_admin.callback_query = None
+    mock_up_admin.effective_message.reply_text = AsyncMock()
+
+    await lock_trip_handler(mock_up_admin, mock_ctx)
+    assert await is_trip_locked(db_path, trip_id) is True
+
+    # 3. Admin unlocks trip via /unlock
+    await unlock_trip_handler(mock_up_admin, mock_ctx)
+    assert await is_trip_locked(db_path, trip_id) is False
+
+    # 4. Admin locks trip via callback
+    mock_up_cb = MagicMock()
+    mock_up_cb.effective_chat.id = 1111
+    mock_up_cb.effective_chat.type = "group"
+    mock_up_cb.effective_user = create_mock_user(1, "Maysam Mir", "mmirahma")
+    mock_up_cb.callback_query = MagicMock()
+    mock_up_cb.callback_query.data = "admin_lock_trip"
+    mock_up_cb.callback_query.answer = AsyncMock()
+    mock_up_cb.callback_query.edit_message_text = AsyncMock()
+
+    await admin_lock_callback_handler(mock_up_cb, mock_ctx)
+    assert await is_trip_locked(db_path, trip_id) is True
+
+    # Verify admin menu shows unlock button
+    await admin_menu_handler(mock_up_cb, mock_ctx)
+    call_args = mock_up_cb.callback_query.edit_message_text.call_args
+    assert "LOCKED" in call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_locked_trip_prevents_all_modifications(db_path):
+    from bot.db import set_trip_lock
+    from bot.handlers.expense import expense_handler
+    from bot.handlers.meal import meal_handler, contribute_handler, skip_handler
+    from bot.handlers.family import join_handler
+    from bot.handlers.edit_expenses import edit_my_expenses_handler
+
+    trip_id = await create_trip(db_path, "Locked Trip", 2222)
+    fid = await add_family(db_path, trip_id, "Alice's family", 2.0, 100)
+
+    # Lock trip
+    await set_trip_lock(db_path, trip_id, 1)
+
+    mock_bot = MagicMock()
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+
+    mock_up = MagicMock()
+    mock_up.effective_chat.id = 2222
+    mock_up.effective_chat.type = "group"
+    mock_up.effective_user = create_mock_user(100, "Alice", "alice")
+    mock_up.callback_query = None
+    mock_up.effective_message.reply_text = AsyncMock()
+
+    # 1. /expense when locked
+    mock_ctx.args = ["Firewood", "50"]
+    await expense_handler(mock_up, mock_ctx)
+    mock_up.effective_message.reply_text.assert_called()
+    assert "locked" in mock_up.effective_message.reply_text.call_args[0][0].lower()
+
+    # 2. /meal when locked
+    mock_up.effective_message.reply_text.reset_mock()
+    mock_ctx.args = ["Dinner", "80"]
+    await meal_handler(mock_up, mock_ctx)
+    mock_up.effective_message.reply_text.assert_called()
+    assert "locked" in mock_up.effective_message.reply_text.call_args[0][0].lower()
+
+    # 3. /join when locked
+    mock_up.effective_message.reply_text.reset_mock()
+    mock_ctx.args = ["2.5"]
+    await join_handler(mock_up, mock_ctx)
+    mock_up.effective_message.reply_text.assert_called()
+    assert "locked" in mock_up.effective_message.reply_text.call_args[0][0].lower()
+
+    # 4. /editmyexpenses when locked
+    mock_up.effective_message.reply_text.reset_mock()
+    await edit_my_expenses_handler(mock_up, mock_ctx)
+    mock_up.effective_message.reply_text.assert_called()
+    assert "locked" in mock_up.effective_message.reply_text.call_args[0][0].lower()
+
+
+
 
 
 

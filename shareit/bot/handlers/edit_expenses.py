@@ -13,7 +13,10 @@ from bot.db import (
     add_meal_contribution, get_meal_by_number, get_meal_contributions,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
+from bot.handlers._helpers import (
+    get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion,
+    require_unlocked_trip,
+)
 
 SHARED_EXPENSE_PRESETS = [
     [("Firewood 🪵", "admlog_cat_Firewood"), ("Park Entry 🏞", "admlog_cat_Park Entry")],
@@ -57,6 +60,8 @@ def _parse_amount(text: str) -> float | None:
 async def edit_my_expenses_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display all logged expenses for the user's family with inline edit buttons."""
     if not await require_group(update, context):
+        return
+    if not await require_unlocked_trip(update, context):
         return
 
     lang = await get_lang(update, context)
@@ -183,6 +188,9 @@ async def edit_expense_action_callback_handler(update: Update, context: ContextT
         await edit_my_expenses_handler(update, context)
         return
 
+    if not await require_unlocked_trip(update, context):
+        return
+
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
         return
@@ -254,6 +262,10 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
         if time.time() - log_state.get("timestamp", 0) > 180:
             context.user_data.pop("admin_log_expense", None)
         else:
+            if not await require_unlocked_trip(update, context):
+                context.user_data.pop("admin_log_expense", None)
+                return True
+
             step = log_state.get("step")
             trip = await get_active_trip(db_path, chat_id)
             if not trip:
@@ -416,6 +428,10 @@ async def pending_edit_expense_text_handler(update: Update, context: ContextType
     if update.effective_chat.id != pending["chat_id"]:
         return False
 
+    if not await require_unlocked_trip(update, context):
+        context.user_data.pop("pending_edit_expense", None)
+        return True
+
     amount = _parse_amount(text)
     if amount is None:
         return False
@@ -462,6 +478,9 @@ async def admin_edit_all_expenses_handler(update: Update, context: ContextTypes.
             await update.callback_query.edit_message_text(t("admin_only", lang))
         else:
             await reply_ephemeral(update, context, t("admin_only", lang))
+        return
+
+    if not await require_unlocked_trip(update, context):
         return
 
     trip = await get_active_trip(db_path, chat_id)
@@ -516,6 +535,9 @@ async def admin_log_flow_callback_handler(update: Update, context: ContextTypes.
     from bot.handlers._helpers import is_admin_or_owner
     if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
         await query.edit_message_text(t("admin_only", lang))
+        return
+
+    if not await require_unlocked_trip(update, context):
         return
 
     trip = await get_active_trip(db_path, chat_id)
@@ -938,6 +960,9 @@ async def admin_expense_action_callback_handler(update: Update, context: Context
 
     if data == "admexp_list":
         await admin_edit_all_expenses_handler(update, context)
+        return
+
+    if not await require_unlocked_trip(update, context):
         return
 
     trip = await get_active_trip(db_path, chat_id)

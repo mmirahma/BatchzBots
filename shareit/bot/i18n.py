@@ -642,6 +642,34 @@ STRINGS = {
         "en": "Usage: /history [number]\nExample: /history 1",
         "fa": "استفاده: /history [شماره]\nمثال: /history 1",
     },
+    "btn_lock_trip": {
+        "en": "🔒 Lock Entries",
+        "fa": "🔒 قفل ثبت هزینه",
+    },
+    "btn_unlock_trip": {
+        "en": "🔓 Unlock Entries",
+        "fa": "🔓 باز کردن قفل ثبت هزینه",
+    },
+    "trip_locked": {
+        "en": "🔒 Trip entries are currently locked by an admin. No modifications are allowed.",
+        "fa": "🔒 ثبت تغییرات سفر توسط مدیر قفل شده است. امکان ثبت یا ویرایش هزینه وجود ندارد.",
+    },
+    "trip_locked_banner": {
+        "en": "🔒 *Entries are currently LOCKED.* No changes are admitted until unlocked.",
+        "fa": "🔒 *ثبت تغییرات در حال حاضر قفل است.* امکان ثبت هیچ تغییری وجود ندارد.",
+    },
+    "trip_lock_success": {
+        "en": "🔒 *Trip entries are now locked.* No new expenses or modifications can be made until unlocked by an admin.",
+        "fa": "🔒 *ثبت تغییرات سفر قفل شد.* تا زمان باز شدن توسط مدیر، امکان ثبت یا ویرایش هزینه وجود ندارد.",
+    },
+    "trip_unlock_success": {
+        "en": "🔓 *Trip entries are now unlocked.* Members and admins can now log and edit expenses.",
+        "fa": "🔓 *قفل ثبت تغییرات سفر باز شد.* اعضا و مدیران می‌توانند هزینه‌ها را ثبت و ویرایش کنند.",
+    },
+    "admin_only_lock": {
+        "en": "⛔️ Only group administrators can lock or unlock trip entries.",
+        "fa": "⛔️ فقط مدیران گروه می‌توانند ثبت هزینه را قفل یا باز کنند.",
+    },
 }
 
 

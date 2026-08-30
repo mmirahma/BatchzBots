@@ -187,10 +187,36 @@ async def require_group(update: Update, context: ContextTypes.DEFAULT_TYPE = Non
     return True
 
 
-async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE) -> tuple:
+async def require_unlocked_trip(update: Update, context: ContextTypes.DEFAULT_TYPE, trip: dict | None = None) -> bool:
+    """Check if the active trip is locked. If locked, alert/reply with error and return False."""
+    db_path = context.bot_data.get("db_path") if context and context.bot_data else None
+    if not db_path:
+        return True
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    if not chat_id:
+        return True
+
+    if trip is None:
+        trip = await get_active_trip(db_path, chat_id)
+
+    if trip and trip.get("is_locked", 0) == 1:
+        lang = await get_lang(update, context)
+        if update.callback_query:
+            try:
+                await update.callback_query.answer(t("trip_locked", lang), show_alert=True)
+            except Exception:
+                pass
+        await reply_ephemeral(update, context, t("trip_locked", lang))
+        return False
+
+    return True
+
+
+async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE, check_lock: bool = True) -> tuple:
     """
     Get active trip and family for the current user.
     Returns (trip, family, lang). If not joined, prompts with Join buttons.
+    If check_lock is True and trip is locked, rejects modification and returns (None, None, lang).
     """
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     from bot.handlers.family import WEIGHT_OPTIONS
@@ -203,6 +229,15 @@ async def require_family(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
         await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return None, None, lang
+
+    if check_lock and trip.get("is_locked", 0) == 1:
+        if update.callback_query:
+            try:
+                await update.callback_query.answer(t("trip_locked", lang), show_alert=True)
+            except Exception:
+                pass
+        await reply_ephemeral(update, context, t("trip_locked", lang))
         return None, None, lang
 
     family = await get_family(db_path, trip["id"], user_id)

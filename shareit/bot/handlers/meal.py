@@ -7,7 +7,10 @@ from bot.db import (
     get_meal_by_name, get_active_trip, get_family, get_meal_grouping_members,
 )
 from bot.i18n import t
-from bot.handlers._helpers import require_group, require_family, reply_ephemeral, get_lang
+from bot.handlers._helpers import (
+    require_group, require_family, reply_ephemeral, get_lang,
+    require_unlocked_trip,
+)
 
 AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
 
@@ -163,6 +166,9 @@ async def contribute_callback_handler(update: Update, context: ContextTypes.DEFA
 
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
 
     try:
         meal_number = int(query.data.replace("contrib_", ""))
@@ -435,6 +441,9 @@ async def skip_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
 
+    if not await require_unlocked_trip(update, context):
+        return
+
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -494,6 +503,8 @@ AMOUNT_PRESETS = [10.0, 20.0, 30.0, 50.0, 100.0]
 
 async def prompt_meal_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Prompt user with meal name preset buttons."""
+    if not await require_unlocked_trip(update, context):
+        return
     import time as _time
     from bot.handlers._helpers import get_lang
     lang = await get_lang(update, context)
@@ -526,6 +537,9 @@ async def meal_preset_callback_handler(update: Update, context: ContextTypes.DEF
 
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
     meal_name = query.data.replace("pmeal_", "")
     lang = await get_lang(update, context)
     chat_id = update.effective_chat.id
@@ -558,6 +572,9 @@ async def meal_skip_desc_callback_handler(update: Update, context: ContextTypes.
     query = update.callback_query
     await query.answer()
 
+    if not await require_unlocked_trip(update, context):
+        return
+
     pending_desc = context.user_data.pop("pending_meal_desc", {})
     category = pending_desc.get("category", "Meal")
     context.user_data["pending_meal_name"] = category
@@ -585,6 +602,10 @@ async def meal_amount_callback_handler(update: Update, context: ContextTypes.DEF
     """Handle meal amount preset selection."""
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
+
     try:
         amount = float(query.data.replace("pamt_", ""))
     except ValueError:

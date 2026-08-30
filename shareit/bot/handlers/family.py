@@ -6,7 +6,10 @@ from bot.db import (
     get_meals, get_meal_absences, add_meal_absence, remove_meal_absence,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
+from bot.handlers._helpers import (
+    get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion,
+    require_unlocked_trip,
+)
 
 WEIGHT_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]
 
@@ -14,6 +17,8 @@ WEIGHT_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]
 async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /join [weight] command. Shows buttons if no weight given."""
     if not await require_group(update, context):
+        return
+    if not await require_unlocked_trip(update, context):
         return
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
@@ -58,6 +63,9 @@ async def join_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     """Handle inline button press for weight selection."""
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
 
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
@@ -165,6 +173,10 @@ async def join_meal_attendance_callback_handler(update: Update, context: Context
     """Handle toggle button tap (jmat_toggle_X) or Done button tap (jmat_done)."""
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
+
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id

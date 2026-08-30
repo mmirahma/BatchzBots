@@ -3,7 +3,10 @@ from telegram.ext import ContextTypes
 
 from bot.db import add_shared_expense
 from bot.i18n import t
-from bot.handlers._helpers import require_group, require_family, reply_ephemeral, get_lang
+from bot.handlers._helpers import (
+    require_group, require_family, reply_ephemeral, get_lang,
+    require_unlocked_trip,
+)
 
 EXPENSE_PRESETS = [
     [("Firewood 🪵", "pexp_Firewood"), ("Park Entry 🏞", "pexp_Park Entry")],
@@ -48,6 +51,8 @@ async def expense_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def prompt_expense_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Prompt user with unified expense menu: existing meals, new meal, or general expense."""
+    if not await require_unlocked_trip(update, context):
+        return
     from bot.db import get_active_trip, get_meals
     lang = await get_lang(update, context)
     db_path = context.bot_data["db_path"]
@@ -77,6 +82,10 @@ async def expense_menu_callback_handler(update: Update, context: ContextTypes.DE
     """Handle choice between New Meal Expense, General Shared Expense, and Specific Family Expense."""
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
+
     data = query.data
 
     if data == "exp_new_meal":

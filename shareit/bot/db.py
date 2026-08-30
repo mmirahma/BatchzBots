@@ -14,6 +14,7 @@ async def init_db(db_path: str) -> None:
                 name TEXT NOT NULL,
                 chat_id INTEGER NOT NULL,
                 active INTEGER NOT NULL DEFAULT 1,
+                is_locked INTEGER NOT NULL DEFAULT 0,
                 expected_families INTEGER,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
@@ -78,6 +79,12 @@ async def init_db(db_path: str) -> None:
                 PRIMARY KEY (chat_id, telegram_user_id)
             );
         """)
+        # Migrations for existing DB files without is_locked column in trips
+        async with db.execute("PRAGMA table_info(trips)") as cursor:
+            cols = [row[1] for row in await cursor.fetchall()]
+            if "is_locked" not in cols:
+                await db.execute("ALTER TABLE trips ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0")
+
         # Migrations for existing DB files without grouping_id column
         async with db.execute("PRAGMA table_info(meals)") as cursor:
             cols = [row[1] for row in await cursor.fetchall()]
@@ -99,6 +106,21 @@ async def init_db(db_path: str) -> None:
         """)
 
         await db.commit()
+
+
+async def set_trip_lock(db_path: str, trip_id: int, is_locked: int) -> None:
+    """Set the lock state of a trip (1 = locked, 0 = unlocked)."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET is_locked = ? WHERE id = ?", (is_locked, trip_id))
+        await db.commit()
+
+
+async def is_trip_locked(db_path: str, trip_id: int) -> bool:
+    """Check whether a trip is currently locked."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute("SELECT is_locked FROM trips WHERE id = ?", (trip_id,)) as cursor:
+            row = await cursor.fetchone()
+            return bool(row[0]) if row else False
 
 
 async def create_trip(db_path: str, name: str, chat_id: int, expected_families: int | None = None) -> int:

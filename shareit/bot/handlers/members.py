@@ -12,7 +12,10 @@ from bot.db import (
     save_chat_member, get_known_chat_members,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, record_user_activity, refresh_callback_message_deletion
+from bot.handlers._helpers import (
+    get_lang, require_group, reply_ephemeral, record_user_activity, refresh_callback_message_deletion,
+    require_unlocked_trip,
+)
 from bot.handlers.family import WEIGHT_OPTIONS
 
 logger = logging.getLogger(__name__)
@@ -259,6 +262,9 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         await status_handler(update, context)
         return
 
+    if not await require_unlocked_trip(update, context):
+        return
+
     if data == "mem_custom":
         # Prompt for custom family name
         context.user_data["pending_custom_member_name"] = True
@@ -394,6 +400,12 @@ async def pending_member_text_handler(update: Update, context: ContextTypes.DEFA
         context.user_data.pop("pending_custom_member_weight", None)
         context.user_data.pop("pending_custom_member_name_val", None)
         return False
+
+    if not await require_unlocked_trip(update, context):
+        context.user_data.pop("pending_custom_member_name", None)
+        context.user_data.pop("pending_custom_member_weight", None)
+        context.user_data.pop("pending_custom_member_name_val", None)
+        return True
 
     text = update.message.text.strip()
     db_path = context.bot_data["db_path"]

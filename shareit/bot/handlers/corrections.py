@@ -4,7 +4,10 @@ from telegram.ext import ContextTypes
 
 from bot.db import delete_meal, get_meal_by_number, get_meal_contributions, update_contribution_amount
 from bot.i18n import t
-from bot.handlers._helpers import require_group, require_family, reply_ephemeral, refresh_callback_message_deletion
+from bot.handlers._helpers import (
+    require_group, require_family, reply_ephemeral, refresh_callback_message_deletion,
+    require_unlocked_trip,
+)
 
 
 async def undo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -158,6 +161,9 @@ async def delete_meal_prompt_callback_handler(update: Update, context: ContextTy
     query = update.callback_query
     await query.answer()
 
+    if not await require_unlocked_trip(update, context):
+        return
+
     data = query.data
     try:
         meal_id = int(data.replace("delmeal_prompt_", ""))
@@ -207,6 +213,9 @@ async def delete_meal_confirm_callback_handler(update: Update, context: ContextT
     """Handle explicit confirmed deletion of an event and all associated payments (delmeal_confirm_{meal_id})."""
     query = update.callback_query
     await query.answer()
+
+    if not await require_unlocked_trip(update, context):
+        return
 
     data = query.data
     try:

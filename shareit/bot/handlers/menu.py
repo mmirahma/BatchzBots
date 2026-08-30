@@ -105,12 +105,19 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
+    is_locked = trip.get("is_locked", 0) == 1
+    lock_btn_text = t("btn_unlock_trip", lang) if is_locked else t("btn_lock_trip", lang)
+    lock_cb = "admin_unlock_trip" if is_locked else "admin_lock_trip"
+
     buttons = [
         [InlineKeyboardButton(t("btn_members", lang), callback_data="menu_members")],
         [InlineKeyboardButton(t("btn_edit_all_expenses", lang), callback_data="menu_admin_expenses")],
+        [InlineKeyboardButton(lock_btn_text, callback_data=lock_cb)],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     text = t("admin_menu_title", lang, trip_name=trip["name"])
+    if is_locked:
+        text += f"\n\n{t('trip_locked_banner', lang)}"
 
     if update.callback_query:
         try:
@@ -122,6 +129,85 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 raise
     else:
         await reply_ephemeral(update, context, text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def admin_lock_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle admin_lock_trip and admin_unlock_trip callbacks."""
+    if not await require_group(update, context):
+        return
+    query = update.callback_query
+    await query.answer()
+
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await reply_ephemeral(update, context, t("admin_only_lock", lang))
+        return
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    new_lock_state = 1 if query.data == "admin_lock_trip" else 0
+    from bot.db import set_trip_lock
+    await set_trip_lock(db_path, trip["id"], new_lock_state)
+
+    # Re-render admin menu with updated status and lock button
+    await admin_menu_handler(update, context)
+
+
+async def lock_trip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /lock command (admin only)."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await reply_ephemeral(update, context, t("admin_only_lock", lang))
+        return
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    from bot.db import set_trip_lock
+    await set_trip_lock(db_path, trip["id"], 1)
+    from bot.handlers._helpers import schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
+    await reply_ephemeral(update, context, t("trip_lock_success", lang), parse_mode="Markdown")
+
+
+async def unlock_trip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /unlock command (admin only)."""
+    if not await require_group(update, context):
+        return
+    lang = await get_lang(update, context)
+    db_path = context.bot_data["db_path"]
+    chat_id = update.effective_chat.id
+
+    from bot.handlers._helpers import is_admin_or_owner
+    if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
+        await reply_ephemeral(update, context, t("admin_only_lock", lang))
+        return
+
+    trip = await get_active_trip(db_path, chat_id)
+    if not trip:
+        await reply_ephemeral(update, context, t("no_active_trip", lang))
+        return
+
+    from bot.db import set_trip_lock
+    await set_trip_lock(db_path, trip["id"], 0)
+    from bot.handlers._helpers import schedule_user_message_deletion
+    schedule_user_message_deletion(update, context)
+    await reply_ephemeral(update, context, t("trip_unlock_success", lang), parse_mode="Markdown")
 
 
 async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
