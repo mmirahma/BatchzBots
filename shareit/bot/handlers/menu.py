@@ -181,6 +181,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         or context.user_data.get("pending_expense_amount_prompt")
         or context.user_data.get("pending_targeted_expense_desc")
         or context.user_data.get("pending_targeted_expense_amt_prompt")
+        or context.user_data.get("pending_targeted_custom_weight")
         or context.user_data.get("pending_contribute")
         or context.user_data.get("pending_edit_expense")
         or context.user_data.get("admin_log_expense")
@@ -201,6 +202,7 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             "pending_meal_desc", "pending_meal_name", "pending_meal_amount_prompt",
             "pending_expense_prompt", "pending_expense_desc", "pending_expense_amount_prompt",
             "pending_targeted_expense_desc", "pending_targeted_expense_amt_prompt",
+            "pending_targeted_custom_weight",
             "pending_contribute", "pending_edit_expense", "admin_log_expense", "targeted_expense_desc",
             "targeted_expense_weights", "pending_custom_member_name", "pending_custom_member_weight",
             "pending_custom_member_name_val"
@@ -248,6 +250,9 @@ async def text_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             return
         from bot.handlers.edit_expenses import pending_edit_expense_text_handler
         if await pending_edit_expense_text_handler(update, context):
+            return
+        from bot.handlers.expense import pending_targeted_weight_text_handler
+        if await pending_targeted_weight_text_handler(update, context):
             return
         from bot.handlers.meal import contribute_amount_handler
         await contribute_amount_handler(update, context)

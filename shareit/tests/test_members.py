@@ -753,6 +753,63 @@ async def test_admin_log_expense_for_other_members(db_path):
     assert firewood_exp["amount"] == 67.50
     assert firewood_exp["family_id"] == f_bob
 
+    # 10. Admin logs custom-weighted expense with custom typed weight (e.g. 3.75) for a member
+    query.reset_mock()
+    query.data = f"admlog_fam_{f_bob}"
+    up.callback_query = query
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_type_targeted"
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_tgtcat_Equipment"
+    await admin_log_flow_callback_handler(up, mock_context)
+    query.data = "admlog_tgtamt_200.00"
+    await admin_log_flow_callback_handler(up, mock_context)
+
+    # Click on Maysam's family to adjust weight
+    query.reset_mock()
+    query.data = f"ptgtfam_{f_admin}"
+    await targeted_expense_family_callback_handler(up, mock_context)
+    query.edit_message_text.assert_called_once()
+    reply_markup = query.edit_message_text.call_args[1]["reply_markup"]
+    flat_data = [btn.callback_data for row in reply_markup.inline_keyboard for btn in row]
+    assert f"ptgtcustw_{f_admin}" in flat_data
+
+    # Click custom weight button
+    query.reset_mock()
+    query.data = f"ptgtcustw_{f_admin}"
+    await targeted_expense_family_callback_handler(up, mock_context)
+    assert mock_context.user_data["pending_targeted_custom_weight"]["family_id"] == f_admin
+
+    # Type custom weight "3.75" in chat
+    msg_up = MagicMock()
+    msg_up.effective_chat.id = 9000
+    msg_up.effective_user = create_mock_user(101, "Maysam Mir", "maysammir")
+    msg_up.callback_query = None
+    msg_up.message.text = "3.75"
+    msg_up.message.reply_text = AsyncMock()
+
+    await text_menu_handler(msg_up, mock_context)
+    assert mock_context.user_data["pending_targeted_expense_weights"][f_admin] == 3.75
+
+    # Save the expense
+    save_query = MagicMock()
+    save_query.data = "ptgt_save"
+    save_query.answer = AsyncMock()
+    save_query.edit_message_text = AsyncMock()
+    up.callback_query = save_query
+    await targeted_expense_family_callback_handler(up, mock_context)
+
+    # Verify grouping in DB has weight 3.75 for Maysam
+    from bot.db import get_grouping_members
+    shared_exps_after = await get_shared_expenses(db_path, trip_id)
+    equip_exp = next(e for e in shared_exps_after if e["description"] == "Equipment")
+    assert equip_exp["amount"] == 200.0
+    assert equip_exp["family_id"] == f_bob
+    grouping_members = await get_grouping_members(db_path, equip_exp["grouping_id"])
+    maysam_gm = next(gm for gm in grouping_members if gm["family_id"] == f_admin)
+    assert maysam_gm["weight"] == 3.75
+
+
 
 
 def test_admin_callback_pattern_routing():

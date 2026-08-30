@@ -255,11 +255,42 @@ async def targeted_expense_family_callback_handler(update: Update, context: Cont
         if row:
             buttons.append(row)
 
-        # Add Exclude button
-        buttons.append([InlineKeyboardButton(t("btn_exclude_family", lang), callback_data=f"ptgtsetw_{target_fid}_0.0")])
+        # Add Custom Weight and Exclude buttons
+        buttons.append([
+            InlineKeyboardButton(t("btn_custom_weight", lang), callback_data=f"ptgtcustw_{target_fid}"),
+            InlineKeyboardButton(t("btn_exclude_family", lang), callback_data=f"ptgtsetw_{target_fid}_0.0"),
+        ])
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data="ptgt_back")])
 
         msg_text = t("targeted_set_weight_title", lang, family_name=target_family["name"], weight=curr_w)
         await query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        return
+
+    if data.startswith("ptgtcustw_"):
+        import time as _time
+        target_fid = int(data.replace("ptgtcustw_", ""))
+        from bot.db import get_active_trip, get_families
+        trip = await get_active_trip(db_path, chat_id)
+        families = await get_families(db_path, trip["id"]) if trip else []
+        target_family = next((f for f in families if f["id"] == target_fid), None)
+        if not target_family:
+            return
+
+        context.user_data["pending_targeted_custom_weight"] = {
+            "family_id": target_fid,
+            "family_name": target_family["name"],
+            "chat_id": chat_id,
+            "timestamp": _time.time(),
+        }
+        back_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back", lang), callback_data=f"ptgtfam_{target_fid}")]])
+        msg_text = t("prompt_custom_member_weight", lang, name=target_family["name"])
+        await query.edit_message_text(msg_text, reply_markup=back_btn, parse_mode="Markdown")
+        return
+
+    if data == "ptgt_back":
+        desc = context.user_data.get("pending_targeted_desc", "Custom Expense")
+        amount = context.user_data.get("pending_targeted_amount", 0.0)
+        await prompt_targeted_expense_family(update, context, desc, amount)
         return
 
     if data.startswith("ptgtsetw_"):
@@ -274,6 +305,43 @@ async def targeted_expense_family_callback_handler(update: Update, context: Cont
         desc = context.user_data.get("pending_targeted_desc", "Custom Expense")
         amount = context.user_data.get("pending_targeted_amount", 0.0)
         await prompt_targeted_expense_family(update, context, desc, amount)
+
+
+async def pending_targeted_weight_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle plain text number entered for custom family weight in targeted expense flow."""
+    if not update.message or not update.message.text:
+        return False
+    pending = context.user_data.get("pending_targeted_custom_weight")
+    if not pending:
+        return False
+    if update.effective_chat.id != pending.get("chat_id"):
+        return False
+    import time as _time
+    if _time.time() - pending.get("timestamp", 0) > 180:
+        context.user_data.pop("pending_targeted_custom_weight", None)
+        return False
+
+    from bot.handlers.edit_expenses import _parse_amount
+    text = update.message.text.strip()
+    weight = _parse_amount(text)
+    lang = await get_lang(update, context)
+
+    if weight is None or weight <= 0:
+        await reply_ephemeral(update, context, t("invalid_weight", lang))
+        return True
+
+    state = context.user_data.pop("pending_targeted_custom_weight")
+    target_fid = state["family_id"]
+
+    if "pending_targeted_expense_weights" not in context.user_data:
+        context.user_data["pending_targeted_expense_weights"] = {}
+    context.user_data["pending_targeted_expense_weights"][target_fid] = weight
+
+    desc = context.user_data.get("pending_targeted_desc", "Custom Expense")
+    amount = context.user_data.get("pending_targeted_amount", 0.0)
+
+    await prompt_targeted_expense_family(update, context, desc, amount)
+    return True
 
 
 async def targeted_amount_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
