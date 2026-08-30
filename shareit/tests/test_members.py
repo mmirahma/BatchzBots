@@ -812,6 +812,25 @@ async def test_admin_log_expense_for_other_members(db_path):
 
 
 
+def test_autodestruct_60min_contract():
+    """Verify that EPHEMERAL_DELETE_SECONDS is 3600 (60 minutes) and deletion jobs use 3600s."""
+    from bot.handlers._helpers import EPHEMERAL_DELETE_SECONDS, schedule_message_deletion
+    from datetime import timedelta
+
+    assert EPHEMERAL_DELETE_SECONDS == 3600
+
+    mock_context = MagicMock()
+    mock_context.job_queue = MagicMock()
+    mock_context.job_queue.get_jobs_by_name.return_value = []
+
+    schedule_message_deletion(12345, 67890, mock_context)
+    mock_context.job_queue.run_once.assert_called_once()
+    _, kwargs = mock_context.job_queue.run_once.call_args
+    assert kwargs["when"] == timedelta(seconds=3600)
+    assert kwargs["data"] == {"chat_id": 12345, "message_id": 67890}
+    assert kwargs["name"] == "ephemeral_12345_67890"
+
+
 def test_admin_callback_pattern_routing():
     import re
     p_select = re.compile(r"^admexp_(meal|expense)_\d+$")

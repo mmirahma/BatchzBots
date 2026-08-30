@@ -6,7 +6,7 @@ from bot.db import (
     get_meals, get_meal_absences, add_meal_absence, remove_meal_absence,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
+from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
 
 WEIGHT_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]
 
@@ -151,6 +151,7 @@ async def prompt_join_meal_toggles(update: Update, context: ContextTypes.DEFAULT
     if update.callback_query:
         try:
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+            refresh_callback_message_deletion(update, context)
         except BadRequest as e:
             if "Message is not modified" in str(e):
                 pass

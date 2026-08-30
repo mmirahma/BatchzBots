@@ -12,7 +12,7 @@ from bot.db import (
     save_chat_member, get_known_chat_members,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, record_user_activity
+from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, record_user_activity, refresh_callback_message_deletion
 from bot.handlers.family import WEIGHT_OPTIONS
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,7 @@ async def members_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         except BadRequest as e:
             if "Message is not modified" not in str(e):
                 raise
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(update, context, text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -217,6 +218,7 @@ async def member_select_callback_handler(update: Update, context: ContextTypes.D
 
     try:
         await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             raise
@@ -235,11 +237,13 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
     from bot.handlers._helpers import is_admin_or_owner
     if not await is_admin_or_owner(context.bot, chat_id, update.effective_user):
         await query.edit_message_text(t("admin_only", lang))
+        refresh_callback_message_deletion(update, context)
         return
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
         await query.edit_message_text(t("no_active_trip", lang))
+        refresh_callback_message_deletion(update, context)
         return
 
     if data == "mem_list":
@@ -261,6 +265,7 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         prompt_text = t("prompt_custom_member_name", lang)
         cancel_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back_members", lang), callback_data="mem_list")]])
         await query.edit_message_text(prompt_text, reply_markup=cancel_btn, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
         return
 
     if data.startswith("mem_custw_"):
@@ -271,6 +276,7 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         prompt_text = t("prompt_custom_member_weight", lang, name=name)
         cancel_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back_members", lang), callback_data="mem_list")]])
         await query.edit_message_text(prompt_text, reply_markup=cancel_btn, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
         return
 
     if data.startswith("mem_add_"):
@@ -343,6 +349,7 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
             ])
 
             await query.edit_message_text(warn_text, reply_markup=confirm_buttons, parse_mode="Markdown")
+            refresh_callback_message_deletion(update, context)
             return
 
         # No expenses: remove directly

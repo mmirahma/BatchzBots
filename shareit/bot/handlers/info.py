@@ -10,7 +10,7 @@ from bot.db import (
 )
 from bot.settlement import calculate_settlement
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
+from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
 
 
 async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -41,6 +41,7 @@ async def meals_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
 
@@ -63,6 +64,7 @@ async def delete_meal_menu_handler(update: Update, context: ContextTypes.DEFAULT
         back_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back_to_list", lang), callback_data="menu_meals")]])
         if update.callback_query:
             await update.callback_query.edit_message_text(t("no_meals_yet", lang), reply_markup=back_btn)
+            refresh_callback_message_deletion(update, context)
         else:
             await reply_ephemeral(update, context, t("no_meals_yet", lang), reply_markup=back_btn)
         return
@@ -77,6 +79,7 @@ async def delete_meal_menu_handler(update: Update, context: ContextTypes.DEFAULT
     text = t("delmeal_select_prompt", lang)
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
 
@@ -142,6 +145,7 @@ async def meals_status_report_handler(update: Update, context: ContextTypes.DEFA
 
     if update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(update, context, text, reply_markup=reply_markup, parse_mode="Markdown")
 

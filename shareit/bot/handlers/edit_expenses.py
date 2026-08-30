@@ -13,7 +13,7 @@ from bot.db import (
     add_meal_contribution, get_meal_by_number, get_meal_contributions,
 )
 from bot.i18n import t
-from bot.handlers._helpers import get_lang, require_group, reply_ephemeral
+from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
 
 SHARED_EXPENSE_PRESETS = [
     [("Firewood 🪵", "admlog_cat_Firewood"), ("Park Entry 🏞", "admlog_cat_Park Entry")],

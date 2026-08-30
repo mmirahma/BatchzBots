@@ -112,6 +112,9 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
 
+    from bot.handlers._helpers import schedule_user_message_deletion, schedule_message_deletion, refresh_callback_message_deletion
+    schedule_user_message_deletion(update, context)
+
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
         await reply_ephemeral(update, context, t("no_active_trip", lang))
@@ -152,7 +155,7 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         expense_groupings=expense_groups,
     )
 
-    # 2. Format & send permanent settlement message
+    # 2. Format & send permanent settlement message (No deletion timer per settlement records policy)
     family_names = {f["id"]: f["name"] for f in families}
     text = t("settle_header", lang,
              trip_name=trip["name"],
@@ -172,7 +175,7 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
 
-    # 3. Generate & send Excel document attachment
+    # 3. Generate & send permanent Excel document attachment (No deletion timer per settlement records policy)
     group_title = update.effective_chat.title if update.effective_chat and update.effective_chat.title else trip["name"]
     excel_file = create_excel_report(
         trip_name=trip["name"],
@@ -208,15 +211,17 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # 4. Deactivate trip in database
     await end_trip(db_path, trip["id"])
 
-    # 5. Send trip ended farewell message informing users about 48h departure & offering Resume button
+    # 5. Send trip ended farewell message informing users about 48h departure & offering Resume button (60-min deletion)
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     resume_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_resume_trip", lang), callback_data="resumetrip_click")]])
-    await context.bot.send_message(
+    farewell_msg = await context.bot.send_message(
         chat_id=chat_id,
         text=t("trip_ended_leave_48h", lang, name=trip["name"]),
         reply_markup=resume_btn,
         parse_mode="Markdown",
     )
+    if farewell_msg:
+        schedule_message_deletion(chat_id, farewell_msg.message_id, context)
 
     # 6. Schedule 48-hour delayed group departure (cancelled if /newtrip or /resumetrip is created)
     if context and context.job_queue:
@@ -239,6 +244,9 @@ async def resumetrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
 
+    from bot.handlers._helpers import schedule_user_message_deletion, refresh_callback_message_deletion
+    schedule_user_message_deletion(update, context)
+
     from bot.db import resume_last_trip
     trip = await resume_last_trip(db_path, chat_id)
     if not trip:
@@ -251,6 +259,7 @@ async def resumetrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(msg_text, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(update, context, msg_text, parse_mode="Markdown")
 

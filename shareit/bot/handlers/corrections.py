@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 
 from bot.db import delete_meal, get_meal_by_number, get_meal_contributions, update_contribution_amount
 from bot.i18n import t
-from bot.handlers._helpers import require_group, require_family, reply_ephemeral
+from bot.handlers._helpers import require_group, require_family, reply_ephemeral, refresh_callback_message_deletion
 
 
 async def undo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -188,6 +188,7 @@ async def delete_meal_prompt_callback_handler(update: Update, context: ContextTy
         await delete_meal(db_path, meal_id)
         msg_text = t("meal_deleted", lang, number=meal["meal_number"], name=meal["name"])
         await query.edit_message_text(msg_text, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
         return
 
     # Warning: Event has payments logged — ask for explicit confirmation
@@ -199,6 +200,7 @@ async def delete_meal_prompt_callback_handler(update: Update, context: ContextTy
 
     warn_msg = t("delmeal_warning", lang, number=meal["meal_number"], name=meal["name"], total=total_paid)
     await query.edit_message_text(warn_msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+    refresh_callback_message_deletion(update, context)
 
 
 async def delete_meal_confirm_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -235,3 +237,4 @@ async def delete_meal_confirm_callback_handler(update: Update, context: ContextT
 
     msg_text = t("meal_deleted_with_payments", lang, number=meal["meal_number"], name=meal["name"], total=total_paid)
     await query.edit_message_text(msg_text, parse_mode="Markdown")
+    refresh_callback_message_deletion(update, context)

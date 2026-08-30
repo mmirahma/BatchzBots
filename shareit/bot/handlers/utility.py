@@ -20,6 +20,8 @@ async def prompt_lang_preset(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.callback_query.edit_message_text(
             t("lang_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons)
         )
+        from bot.handlers._helpers import refresh_callback_message_deletion
+        refresh_callback_message_deletion(update, context)
     else:
         await reply_ephemeral(
             update, context, t("lang_prompt", lang), reply_markup=InlineKeyboardMarkup(buttons)
@@ -35,6 +37,9 @@ async def lang_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+
+    from bot.handlers._helpers import refresh_callback_message_deletion
+    refresh_callback_message_deletion(update, context)
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
@@ -54,6 +59,7 @@ async def lang_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await db.commit()
 
     await query.edit_message_text(t("lang_switched", new_lang))
+    refresh_callback_message_deletion(update, context)
 
 
 async def lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -88,7 +94,7 @@ async def lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /help command or ❓ Help button — display guide and stay for 1 hour (3600s)."""
+    """Handle /help command or ❓ Help button — display guide and stay for 60 minutes (3600s)."""
     lang = await get_lang(update, context)
     chat_id = update.effective_chat.id
     target = update.effective_message
@@ -110,7 +116,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /export command or export_excel button tap — generate and send itemized Excel file."""
+    """Handle /export command or export_excel button tap — generate and send permanent itemized Excel file."""
     if update.callback_query:
         await update.callback_query.answer()
 
@@ -174,24 +180,15 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     filename = f"{clean_channel}-{clean_trip}.xlsx"
     caption = t("export_caption", lang, trip_name=group_title)
 
-    from datetime import timedelta
-    from bot.handlers._helpers import _delete_message_job, EPHEMERAL_DELETE_SECONDS, schedule_user_message_deletion
-
+    from bot.handlers._helpers import schedule_user_message_deletion
     schedule_user_message_deletion(update, context)
 
-    doc_msg = await context.bot.send_document(
+    # Note: Excel report document is permanent (no autodestruct per settlement records policy)
+    await context.bot.send_document(
         chat_id=chat_id,
         document=excel_file,
         filename=filename,
         caption=caption,
         parse_mode="Markdown",
     )
-
-    if doc_msg:
-        context.job_queue.run_once(
-            _delete_message_job,
-            when=timedelta(seconds=EPHEMERAL_DELETE_SECONDS),
-            data={"chat_id": doc_msg.chat_id, "message_id": doc_msg.message_id},
-            name=f"ephemeral_{doc_msg.chat_id}_{doc_msg.message_id}",
-        )
 

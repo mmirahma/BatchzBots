@@ -115,6 +115,8 @@ async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.callback_query:
         try:
             await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+            from bot.handlers._helpers import refresh_callback_message_deletion
+            refresh_callback_message_deletion(update, context)
         except BadRequest as e:
             if "Message is not modified" not in str(e):
                 raise

@@ -11,11 +11,11 @@ from bot.i18n import t
 
 logger = logging.getLogger(__name__)
 
-EPHEMERAL_DELETE_SECONDS = 60  # 1 minute
+EPHEMERAL_DELETE_SECONDS = 3600  # 60 minutes (1 hour)
 
 
 def schedule_message_deletion(chat_id: int, message_id: int, context: ContextTypes.DEFAULT_TYPE, delay_seconds: int = EPHEMERAL_DELETE_SECONDS) -> None:
-    """Schedule deletion of any message after delay_seconds (default 60s). Resets existing timer if present."""
+    """Schedule deletion of any message after delay_seconds (default 3600s / 60 min). Resets existing timer if present."""
     if chat_id and message_id and context and context.job_queue:
         job_name = f"ephemeral_{chat_id}_{message_id}"
         existing = context.job_queue.get_jobs_by_name(job_name)
@@ -30,8 +30,14 @@ def schedule_message_deletion(chat_id: int, message_id: int, context: ContextTyp
         )
 
 
+def refresh_callback_message_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE, delay_seconds: int = EPHEMERAL_DELETE_SECONDS) -> None:
+    """Ensure or renew the 60-minute autodestruct timer on an inline message being edited in callback queries."""
+    if update.callback_query and update.callback_query.message and update.effective_chat:
+        schedule_message_deletion(update.effective_chat.id, update.callback_query.message.message_id, context, delay_seconds)
+
+
 def schedule_user_message_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Schedule deletion of user's incoming message after 1 minute (60s)."""
+    """Schedule deletion of user's incoming message after 60 minutes (3600s)."""
     if update.effective_message and update.effective_chat and not update.callback_query:
         if update.effective_user and not update.effective_user.is_bot:
             schedule_message_deletion(update.effective_chat.id, update.effective_message.message_id, context)
@@ -170,11 +176,13 @@ async def get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
 async def require_group(update: Update, context: ContextTypes.DEFAULT_TYPE = None) -> bool:
     """Check if the command is in a group chat. Returns False if not."""
-    if update.effective_chat.type == "private":
+    if update.effective_chat and update.effective_chat.type == "private":
         if context:
             await reply_ephemeral(update, context, t("group_only", "en"))
         elif update.effective_message:
-            await update.effective_message.reply_text(t("group_only", "en"))
+            msg = await update.effective_message.reply_text(t("group_only", "en"))
+            if context and msg:
+                schedule_message_deletion(msg.chat_id, msg.message_id, context)
         return False
     return True
 
