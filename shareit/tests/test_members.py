@@ -856,6 +856,72 @@ def test_admin_callback_pattern_routing():
     assert p_select.match("admlog_fam_2") is None
 
 
+async def test_my_share_handler_precision_and_groupings(db_path):
+    """Verify my_share_handler matches settlement.py results exactly across meals, skips, and custom groupings."""
+    from bot.db import (
+        create_trip, add_family, add_meal, add_meal_contribution, add_meal_absence,
+        add_shared_expense, create_grouping, add_or_update_grouping_member,
+    )
+    from bot.handlers.info import my_share_handler
+
+    trip_id = await create_trip(db_path, "Tahoe Trip", 5555, 3)
+    f_alice = await add_family(db_path, trip_id, "Alice Family", 2.0, 100)
+    f_bob = await add_family(db_path, trip_id, "Bob Family", 3.0, 200)
+    f_charlie = await add_family(db_path, trip_id, "Charlie Family", 1.0, 300)
+
+    # 1. Meal #1: BBQ ($120) - Alice paid $120. All attend.
+    # Total weights = 2 + 3 + 1 = 6. Alice share = 120 * (2/6) = $40.00
+    m1 = await add_meal(db_path, trip_id, "BBQ", f_alice, 120.0)
+
+    # 2. Meal #2: Pizza ($90) - Bob paid $90. Charlie skipped (absence).
+    # Attending: Alice (2.0), Bob (3.0). Total weight = 5.0.
+    # Alice share = 90 * (2/5) = $36.00
+    m2 = await add_meal(db_path, trip_id, "Pizza", f_bob, 90.0)
+    await add_meal_absence(db_path, m2, f_charlie)
+
+    # 3. Custom Targeted Expense: Boat Rental ($150) paid by Charlie.
+    # Custom grouping: Alice (w=1.5), Charlie (w=1.0), Bob excluded (is_active=0).
+    # Total weight = 2.5. Alice share = 150 * (1.5 / 2.5) = $90.00
+    grp_id = await create_grouping(db_path, trip_id, "Boat Rental Group")
+    await add_or_update_grouping_member(db_path, grp_id, f_alice, weight=1.5, is_active=1)
+    await add_or_update_grouping_member(db_path, grp_id, f_charlie, weight=1.0, is_active=1)
+    await add_or_update_grouping_member(db_path, grp_id, f_bob, weight=0.0, is_active=0)
+    await add_shared_expense(db_path, trip_id, f_charlie, "Boat Rental", 150.0, grouping_id=grp_id)
+
+    # 4. General Shared Expense: Firewood ($60) paid by Alice.
+    # Split across all: Alice (2.0), Bob (3.0), Charlie (1.0). Total = 6.0.
+    # Alice share = 60 * (2/6) = $20.00
+    await add_shared_expense(db_path, trip_id, f_alice, "Firewood", 60.0)
+
+    # Alice Totals:
+    # Total Paid = 120 (BBQ) + 60 (Firewood) = $180.00
+    # Total Owed = 40 (BBQ) + 36 (Pizza) + 90 (Boat) + 20 (Firewood) = $186.00
+    # Net Balance = 180 - 186 = -$6.00 (You owe)
+
+    mock_up = MagicMock()
+    mock_up.effective_chat.id = 5555
+    mock_up.effective_chat.type = "group"
+    mock_up.effective_user = create_mock_user(100, "Alice", "alice")
+    mock_up.callback_query = None
+    mock_up.effective_message.reply_text = AsyncMock()
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot_data = {"db_path": db_path}
+
+    await my_share_handler(mock_up, mock_ctx)
+
+    mock_up.effective_message.reply_text.assert_called_once()
+    output_text = mock_up.effective_message.reply_text.call_args[0][0]
+    assert "TOTAL OWED:                         $186.00" in output_text
+    assert "TOTAL PAID:                         $180.00" in output_text
+    assert "NET BALANCE:       🔴 -$6.00 (You owe)" in output_text
+    assert "$40.00" in output_text  # BBQ share
+    assert "$36.00" in output_text  # Pizza share
+    assert "$90.00" in output_text  # Boat Rental share
+    assert "$20.00" in output_text  # Firewood share
+
+
+
 
 
 

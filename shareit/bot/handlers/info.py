@@ -250,7 +250,7 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
-    from bot.db import get_family
+    from bot.db import get_family, get_grouping_members
     family = await get_family(db_path, trip["id"], user_id)
     if not family:
         await reply_ephemeral(update, context, t("join_first", lang))
@@ -259,6 +259,12 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     families = await get_families(db_path, trip["id"])
     meals = await get_meals(db_path, trip["id"])
     expenses = await get_shared_expenses(db_path, trip["id"])
+
+    if not meals and not expenses:
+        text = t("my_share_header", lang, family_name=escape_markdown(family["name"], version=1), weight=family["weight"])
+        text += "\n\n" + t("status_no_data", lang)
+        await reply_ephemeral(update, context, text, parse_mode="Markdown")
+        return
 
     family_id = family["id"]
     family_weight = family["weight"]
@@ -284,24 +290,34 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             if c["family_id"] == family_id:
                 total_paid += c["amount"]
 
-        # Omit skipped items completely
+        my_share = 0.0
+        pct = 0.0
+
         if family_id not in absences:
             if group_members:
-                attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights]
+                attending = [
+                    gm for gm in group_members
+                    if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights
+                ]
                 total_w = sum(gm["weight"] for gm in attending)
+                my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
+                if my_gm and total_w > 0:
+                    my_weight = my_gm["weight"]
+                    my_share = m_total * (my_weight / total_w)
+                    pct = (my_share / m_total * 100.0) if m_total > 0 else (my_weight / total_w * 100.0)
             else:
                 attending_fids = [fid for fid in family_weights if fid not in absences]
                 total_w = sum(family_weights[fid] for fid in attending_fids)
+                if family_id in attending_fids and total_w > 0:
+                    my_weight = family_weights[family_id]
+                    my_share = m_total * (my_weight / total_w)
+                    pct = (my_share / m_total * 100.0) if m_total > 0 else (my_weight / total_w * 100.0)
 
-            my_share = (m_total * (family_weight / total_w)) if total_w > 0 else 0.0
-            pct = (my_share / m_total * 100.0) if m_total > 0 else (family_weight / total_w * 100.0 if total_w > 0 else 0.0)
-            total_owed += my_share
-
-            item_name = f"#{m['meal_number']} {m['name']}"
-            table_rows.append((item_name, m_total, pct, my_share))
+        total_owed += my_share
+        item_name = f"#{m['meal_number']} {m['name']}"
+        table_rows.append((item_name, m_total, pct, my_share))
 
     # Process general shared expenses
-    from bot.db import get_grouping_members
     for e in expenses:
         amt = e["amount"]
         if e["family_id"] == family_id:
@@ -309,22 +325,26 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
         group_members = await get_grouping_members(db_path, e["grouping_id"]) if e.get("grouping_id") else None
 
+        my_share = 0.0
+        pct = 0.0
+
         if group_members:
             attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] in family_weights]
-            my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
             total_w = sum(gm["weight"] for gm in attending)
+            my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
             if my_gm and total_w > 0:
                 my_weight = my_gm["weight"]
                 my_share = amt * (my_weight / total_w)
                 pct = (my_share / amt * 100.0) if amt > 0 else (my_weight / total_w * 100.0)
-                total_owed += my_share
-                table_rows.append((e["description"], amt, pct, my_share))
         else:
             total_family_w = sum(family_weights.values())
-            my_share = (amt * (family_weight / total_family_w)) if total_family_w > 0 else 0.0
-            pct = (my_share / amt * 100.0) if amt > 0 else (family_weight / total_family_w * 100.0 if total_family_w > 0 else 0.0)
-            total_owed += my_share
-            table_rows.append((e["description"], amt, pct, my_share))
+            if total_family_w > 0:
+                my_weight = family_weight
+                my_share = amt * (my_weight / total_family_w)
+                pct = (my_share / amt * 100.0) if amt > 0 else (my_weight / total_family_w * 100.0)
+
+        total_owed += my_share
+        table_rows.append((e["description"], amt, pct, my_share))
 
     if table_rows:
         text += "\n\n```\n"
@@ -339,7 +359,7 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if abs(net_bal) < 0.01:
             bal_str = "⚪ $0.00 (Settled)"
         elif net_bal > 0:
-            bal_str = f"🟢 +${net_bal:.2f} (Owed)"
+            bal_str = f"🟢 +${net_bal:.2f} (Owed to you)"
         else:
             bal_str = f"🔴 -${abs(net_bal):.2f} (You owe)"
 
@@ -348,6 +368,6 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         text += f"{'NET BALANCE:':<18} {bal_str}\n"
         text += "```"
     else:
-        text += "\n\n_No active meals or expenses for your family._"
+        text += "\n\n" + t("status_no_data", lang)
 
     await reply_ephemeral(update, context, text, parse_mode="Markdown")
