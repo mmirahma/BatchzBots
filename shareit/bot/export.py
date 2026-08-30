@@ -11,16 +11,29 @@ def create_excel_report(
     families: list[dict],
     meals: list[dict],
     expenses: list[dict],
-    meal_contributions: dict[int, list[dict]],
-    meal_absences: dict[int, list[int]],
+    meal_contributions: dict[int, list[dict]] | None = None,
+    meal_absences: dict[int, list[int]] | None = None,
     meal_groupings: dict[int, list[dict]] | None = None,
     expense_groupings: dict[int, list[dict]] | None = None,
     group_title: str | None = None,
+    settlement_result: object | None = None,
 ) -> io.BytesIO:
     """
     Generate an itemized Excel workbook (.xlsx) containing all meals and expenses,
     cost shares per family, notes on absences, and summary rows (Paid, Owed, Net Balance).
     """
+    if settlement_result is None:
+        from bot.settlement import calculate_settlement
+        settlement_result = calculate_settlement(
+            families=families,
+            meals=meals,
+            meal_contributions=meal_contributions or {},
+            meal_absences=meal_absences or {},
+            shared_expenses=expenses,
+            meal_groupings=meal_groupings,
+            expense_groupings=expense_groupings,
+        )
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Expense Report"
@@ -39,7 +52,6 @@ def create_excel_report(
     # 2. Table Headers (Row 4)
     family_ids = [f["id"] for f in families]
     family_names = {f["id"]: f["name"] for f in families}
-    family_weights = {f["id"]: f["weight"] for f in families}
 
     headers = ["Item / Expense", "Type", "Payer", "Total ($)"]
     for f in families:
@@ -67,99 +79,27 @@ def create_excel_report(
         cell.alignment = header_align
         cell.border = thin_border
 
-    # 3. Data Rows
+    # 3. Data Rows directly from settlement_result
     current_row = 5
-    paid_totals = {fid: 0.0 for fid in family_ids}
+    paid_totals = settlement_result.paid_by_family
 
-    # Process meals
-    for m in meals:
-        m_id = m["id"]
-        conts = meal_contributions.get(m_id, [])
-        absent_fids = meal_absences.get(m_id, [])
-        m_total = sum(c["amount"] for c in conts)
-
-        for c in conts:
-            if c["family_id"] in paid_totals:
-                paid_totals[c["family_id"]] += c["amount"]
-
-        if conts:
-            payer_str = ", ".join([f"{family_names.get(c['family_id'], 'Family')} (${c['amount']:.2f})" for c in conts])
+    for item in settlement_result.item_shares:
+        if item.payer_family_ids:
+            payer_str = ", ".join(family_names.get(fid, "Family") for fid in item.payer_family_ids)
         else:
             payer_str = "None"
 
-        group_m = (meal_groupings or {}).get(m_id, [])
-        if group_m:
-            attending = [gm for gm in group_m if gm.get("is_active", 1) != 0 and gm["family_id"] not in absent_fids and gm["family_id"] in family_ids]
-            total_w = sum(gm["weight"] for gm in attending)
-        else:
-            attending_fids = [fid for fid in family_ids if fid not in absent_fids]
-            total_w = sum(family_weights[fid] for fid in attending_fids)
-            attending = [{"family_id": fid, "weight": family_weights[fid]} for fid in attending_fids]
-
-        shares = {fid: 0.0 for fid in family_ids}
-        if total_w > 0:
-            for item in attending:
-                fid = item["family_id"]
-                w = item["weight"]
-                shares[fid] = m_total * (w / total_w)
-
-        skipped_names = [family_names[fid] for fid in absent_fids if fid in family_names]
-        notes_str = f"Skipped: {', '.join(skipped_names)}" if skipped_names else "-"
+        type_str = "Meal/Event" if item.item_type == "meal" else "General Expense"
 
         row_data = [
-            f"#{m['meal_number']} {m['name']}",
-            "Meal/Event",
+            item.item_name,
+            type_str,
             payer_str,
-            m_total,
+            item.total_amount,
         ]
         for fid in family_ids:
-            row_data.append(shares[fid])
-        row_data.append(notes_str)
-
-        ws.append(row_data)
-
-        for col_idx in range(1, len(row_data) + 1):
-            c = ws.cell(row=current_row, column=col_idx)
-            c.border = thin_border
-            if col_idx >= 4 and col_idx < 4 + len(family_ids) + 1:
-                c.number_format = "$#,##0.00"
-                c.alignment = Alignment(horizontal="right")
-        current_row += 1
-
-    # Process general shared expenses
-    for e in expenses:
-        amt = e["amount"]
-        payer_fid = e["family_id"]
-        if payer_fid in paid_totals:
-            paid_totals[payer_fid] += amt
-
-        payer_name = e.get("family_name") or family_names.get(payer_fid, "Family")
-
-        e_id = e.get("id")
-        group_m = (expense_groupings or {}).get(e_id, []) if e_id else []
-
-        shares = {fid: 0.0 for fid in family_ids}
-        if group_m:
-            attending = [gm for gm in group_m if gm.get("is_active", 1) != 0 and gm["family_id"] in family_ids]
-            total_w = sum(gm["weight"] for gm in attending)
-            if total_w > 0:
-                for gm in attending:
-                    shares[gm["family_id"]] = amt * (gm["weight"] / total_w)
-        else:
-            total_family_w = sum(family_weights.values())
-            if total_family_w > 0:
-                for fid in family_ids:
-                    shares[fid] = amt * (family_weights[fid] / total_family_w)
-
-        row_data = [
-            e["description"],
-            "General Expense",
-            payer_name,
-            amt,
-        ]
-        for fid in family_ids:
-            row_data.append(shares[fid])
-        row_data.append("-")
+            row_data.append(item.family_shares.get(fid, 0.0))
+        row_data.append(item.notes or "-")
 
         ws.append(row_data)
 

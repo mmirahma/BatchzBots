@@ -129,28 +129,10 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
-    from bot.db import (
-        get_families, get_meals, get_shared_expenses,
-        get_meal_contributions, get_meal_absences, get_meal_grouping_members, get_grouping_members,
-    )
+    from bot.settlement import calculate_trip_settlement_from_db
     from bot.export import create_excel_report
 
-    families = await get_families(db_path, trip["id"])
-    meals = await get_meals(db_path, trip["id"])
-    expenses = await get_shared_expenses(db_path, trip["id"])
-
-    meal_conts = {}
-    meal_abs = {}
-    meal_groups = {}
-    for m in meals:
-        meal_conts[m["id"]] = await get_meal_contributions(db_path, m["id"])
-        meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
-        meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
-
-    expense_groups = {}
-    for exp in expenses:
-        if exp.get("grouping_id"):
-            expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
+    families, meals, expenses, result = await calculate_trip_settlement_from_db(db_path, trip["id"])
 
     group_title = update.effective_chat.title if update.effective_chat and update.effective_chat.title else trip["name"]
 
@@ -159,11 +141,8 @@ async def export_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         families=families,
         meals=meals,
         expenses=expenses,
-        meal_contributions=meal_conts,
-        meal_absences=meal_abs,
-        meal_groupings=meal_groups,
-        expense_groupings=expense_groups,
         group_title=group_title,
+        settlement_result=result,
     )
 
     raw_channel = update.effective_chat.title if update.effective_chat and update.effective_chat.title else "Group"

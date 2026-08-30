@@ -8,7 +8,7 @@ from bot.db import (
     get_shared_expenses, get_past_trips, get_trip_by_id,
     get_meal_grouping_members,
 )
-from bot.settlement import calculate_settlement
+from bot.settlement import calculate_settlement, calculate_trip_settlement_from_db
 from bot.i18n import t
 from bot.handlers._helpers import get_lang, require_group, reply_ephemeral, refresh_callback_message_deletion
 
@@ -176,31 +176,7 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return
 
         # Show full settlement for this past trip
-        families = await get_families(db_path, trip["id"])
-        meals = await get_meals(db_path, trip["id"])
-        expenses = await get_shared_expenses(db_path, trip["id"])
-
-        meal_contributions = {}
-        meal_absences = {}
-        for meal in meals:
-            contributions = await get_meal_contributions(db_path, meal["id"])
-            meal_contributions[meal["id"]] = [{"family_id": c["family_id"], "amount": c["amount"]} for c in contributions]
-            abs_list = await get_meal_absences(db_path, meal["id"])
-            meal_absences[meal["id"]] = abs_list
-
-        expense_groups = {}
-        for exp in expenses:
-            if exp.get("grouping_id"):
-                expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
-
-        result = calculate_settlement(
-            families=families,
-            meals=meals,
-            meal_contributions=meal_contributions,
-            meal_absences=meal_absences,
-            shared_expenses=expenses,
-            expense_groupings=expense_groups,
-        )
+        families, meals, expenses, result = await calculate_trip_settlement_from_db(db_path, trip["id"])
         family_names = {f["id"]: f["name"] for f in families}
 
         text = t("settle_header", lang,
@@ -237,7 +213,7 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /myshare or '📊 My Share' button — list user's personal itemized cost shares."""
+    """Handle /myshare or '📊 My Share' button — list user's personal itemized cost shares using the settlement engine."""
     if not await require_group(update, context):
         return
     lang = await get_lang(update, context)
@@ -250,112 +226,42 @@ async def my_share_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
-    from bot.db import get_family, get_grouping_members
+    from bot.db import get_family
     family = await get_family(db_path, trip["id"], user_id)
     if not family:
         await reply_ephemeral(update, context, t("join_first", lang))
         return
 
-    families = await get_families(db_path, trip["id"])
-    meals = await get_meals(db_path, trip["id"])
-    expenses = await get_shared_expenses(db_path, trip["id"])
+    families, meals, expenses, res = await calculate_trip_settlement_from_db(db_path, trip["id"])
+
+    esc = lambda s: escape_markdown(str(s), version=1)
+    text = t("my_share_header", lang, family_name=esc(family["name"]), weight=family["weight"])
 
     if not meals and not expenses:
-        text = t("my_share_header", lang, family_name=escape_markdown(family["name"], version=1), weight=family["weight"])
         text += "\n\n" + t("status_no_data", lang)
         await reply_ephemeral(update, context, text, parse_mode="Markdown")
         return
 
     family_id = family["id"]
-    family_weight = family["weight"]
-    family_weights = {f["id"]: f["weight"] for f in families}
-
-    esc = lambda s: escape_markdown(str(s), version=1)
-
-    text = t("my_share_header", lang, family_name=esc(family["name"]), weight=family_weight)
-
-    total_owed = 0.0
-    total_paid = 0.0
+    total_owed = res.owed_by_family.get(family_id, 0.0)
+    total_paid = res.paid_by_family.get(family_id, 0.0)
+    net_bal = res.balances.get(family_id, 0.0)
 
     table_rows = []
-
-    # Process meals
-    for m in meals:
-        conts = await get_meal_contributions(db_path, m["id"])
-        absences = await get_meal_absences(db_path, m["id"])
-        group_members = await get_meal_grouping_members(db_path, m["id"])
-
-        m_total = sum(c["amount"] for c in conts)
-        for c in conts:
-            if c["family_id"] == family_id:
-                total_paid += c["amount"]
-
-        my_share = 0.0
-        pct = 0.0
-
-        if family_id not in absences:
-            if group_members:
-                attending = [
-                    gm for gm in group_members
-                    if gm.get("is_active", 1) != 0 and gm["family_id"] not in absences and gm["family_id"] in family_weights
-                ]
-                total_w = sum(gm["weight"] for gm in attending)
-                my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
-                if my_gm and total_w > 0:
-                    my_weight = my_gm["weight"]
-                    my_share = m_total * (my_weight / total_w)
-                    pct = (my_share / m_total * 100.0) if m_total > 0 else (my_weight / total_w * 100.0)
-            else:
-                attending_fids = [fid for fid in family_weights if fid not in absences]
-                total_w = sum(family_weights[fid] for fid in attending_fids)
-                if family_id in attending_fids and total_w > 0:
-                    my_weight = family_weights[family_id]
-                    my_share = m_total * (my_weight / total_w)
-                    pct = (my_share / m_total * 100.0) if m_total > 0 else (my_weight / total_w * 100.0)
-
-        total_owed += my_share
-        item_name = f"#{m['meal_number']} {m['name']}"
-        table_rows.append((item_name, m_total, pct, my_share))
-
-    # Process general shared expenses
-    for e in expenses:
-        amt = e["amount"]
-        if e["family_id"] == family_id:
-            total_paid += amt
-
-        group_members = await get_grouping_members(db_path, e["grouping_id"]) if e.get("grouping_id") else None
-
-        my_share = 0.0
-        pct = 0.0
-
-        if group_members:
-            attending = [gm for gm in group_members if gm.get("is_active", 1) != 0 and gm["family_id"] in family_weights]
-            total_w = sum(gm["weight"] for gm in attending)
-            my_gm = next((gm for gm in attending if gm["family_id"] == family_id), None)
-            if my_gm and total_w > 0:
-                my_weight = my_gm["weight"]
-                my_share = amt * (my_weight / total_w)
-                pct = (my_share / amt * 100.0) if amt > 0 else (my_weight / total_w * 100.0)
-        else:
-            total_family_w = sum(family_weights.values())
-            if total_family_w > 0:
-                my_weight = family_weight
-                my_share = amt * (my_weight / total_family_w)
-                pct = (my_share / amt * 100.0) if amt > 0 else (my_weight / total_family_w * 100.0)
-
-        total_owed += my_share
-        table_rows.append((e["description"], amt, pct, my_share))
+    for item in res.item_shares:
+        my_share = item.family_shares.get(family_id, 0.0)
+        my_pct = item.family_percentages.get(family_id, 0.0)
+        table_rows.append((item.item_name, item.total_amount, my_pct, my_share))
 
     if table_rows:
         text += "\n\n```\n"
         text += f"{'Item / Event':<18} {'Total':>8} {'Pct':>6} {'Your Share':>9}\n"
         text += "─" * 43 + "\n"
-        for item, total, pct, share in table_rows:
-            item_str = item[:17]
-            text += f"{item_str:<18} {f'${total:.2f}':>8} {f'{pct:.1f}%':>6} {f'${share:.2f}':>9}\n"
+        for item_name, total_amt, pct, share_amt in table_rows:
+            item_str = item_name[:17]
+            text += f"{item_str:<18} {f'${total_amt:.2f}':>8} {f'{pct:.1f}%':>6} {f'${share_amt:.2f}':>9}\n"
         text += "─" * 43 + "\n"
 
-        net_bal = round(total_paid - total_owed, 2)
         if abs(net_bal) < 0.01:
             bal_str = "⚪ $0.00 (Settled)"
         elif net_bal > 0:

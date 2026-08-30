@@ -120,40 +120,11 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
-    from bot.db import (
-        get_families, get_meals, get_shared_expenses,
-        get_meal_contributions, get_meal_absences, get_meal_grouping_members, get_grouping_members, end_trip
-    )
-    from bot.settlement import calculate_settlement
+    from bot.db import end_trip
+    from bot.settlement import calculate_trip_settlement_from_db
     from bot.export import create_excel_report
 
-    families = await get_families(db_path, trip["id"])
-    meals = await get_meals(db_path, trip["id"])
-    expenses = await get_shared_expenses(db_path, trip["id"])
-
-    meal_conts = {}
-    meal_abs = {}
-    meal_groups = {}
-    for m in meals:
-        meal_conts[m["id"]] = await get_meal_contributions(db_path, m["id"])
-        meal_abs[m["id"]] = await get_meal_absences(db_path, m["id"])
-        meal_groups[m["id"]] = await get_meal_grouping_members(db_path, m["id"])
-
-    expense_groups = {}
-    for exp in expenses:
-        if exp.get("grouping_id"):
-            expense_groups[exp["id"]] = await get_grouping_members(db_path, exp["grouping_id"])
-
-    # 1. Calculate final settlement
-    res = calculate_settlement(
-        families=families,
-        meals=meals,
-        meal_contributions=meal_conts,
-        meal_absences=meal_abs,
-        shared_expenses=expenses,
-        meal_groupings=meal_groups,
-        expense_groupings=expense_groups,
-    )
+    families, meals, expenses, res = await calculate_trip_settlement_from_db(db_path, trip["id"])
 
     # 2. Format & send permanent settlement message (No deletion timer per settlement records policy)
     family_names = {f["id"]: f["name"] for f in families}

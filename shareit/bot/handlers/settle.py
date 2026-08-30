@@ -1,12 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.db import (
-    get_active_trip, get_families, get_meals,
-    get_meal_contributions, get_meal_absences, get_shared_expenses,
-    get_meal_grouping_members,
-)
-from bot.settlement import calculate_settlement
+from bot.db import get_active_trip
+from bot.settlement import calculate_trip_settlement_from_db
 from bot.i18n import t
 from bot.handlers._helpers import require_group, get_lang, reply_ephemeral
 
@@ -24,45 +20,12 @@ async def settle_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await reply_ephemeral(update, context, t("no_active_trip", lang))
         return
 
-    families = await get_families(db_path, trip["id"])
-    meals = await get_meals(db_path, trip["id"])
-    expenses = await get_shared_expenses(db_path, trip["id"])
+    families, meals, expenses, result = await calculate_trip_settlement_from_db(db_path, trip["id"])
 
     if not meals and not expenses:
         await reply_ephemeral(update, context, t("nothing_to_settle", lang))
         return
 
-    # Build data for settlement calculation
-    meal_contributions = {}
-    meal_absences = {}
-    meal_groupings = {}
-    for meal in meals:
-        contributions = await get_meal_contributions(db_path, meal["id"])
-        meal_contributions[meal["id"]] = [{"family_id": c["family_id"], "amount": c["amount"]} for c in contributions]
-        absences = await get_meal_absences(db_path, meal["id"])
-        meal_absences[meal["id"]] = absences
-        group_members = await get_meal_grouping_members(db_path, meal["id"])
-        meal_groupings[meal["id"]] = [
-            {"family_id": gm["family_id"], "weight": gm["weight"], "is_active": gm["is_active"]}
-            for gm in group_members
-        ]
-
-    from bot.db import get_grouping_members
-    expense_groupings = {}
-    for e in expenses:
-        if e.get("grouping_id"):
-            gm_members = await get_grouping_members(db_path, e["grouping_id"])
-            expense_groupings[e["id"]] = [
-                {"family_id": gm["family_id"], "weight": gm["weight"], "is_active": gm["is_active"]}
-                for gm in gm_members
-            ]
-
-    expense_data = [{"family_id": e["family_id"], "description": e["description"], "amount": e["amount"], "id": e["id"]} for e in expenses]
-
-    result = calculate_settlement(
-        families, meals, meal_contributions, meal_absences, expense_data,
-        meal_groupings=meal_groupings, expense_groupings=expense_groupings
-    )
     family_names = {f["id"]: f["name"] for f in families}
 
     # Format output
