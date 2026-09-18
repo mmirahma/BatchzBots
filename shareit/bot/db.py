@@ -16,7 +16,9 @@ async def init_db(db_path: str) -> None:
                 active INTEGER NOT NULL DEFAULT 1,
                 is_locked INTEGER NOT NULL DEFAULT 0,
                 expected_families INTEGER,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                ended_at TEXT,
+                bot_left INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS families (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +94,10 @@ async def init_db(db_path: str) -> None:
             cols = [row[1] for row in await cursor.fetchall()]
             if "is_locked" not in cols:
                 await db.execute("ALTER TABLE trips ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0")
+            if "ended_at" not in cols:
+                await db.execute("ALTER TABLE trips ADD COLUMN ended_at TEXT")
+            if "bot_left" not in cols:
+                await db.execute("ALTER TABLE trips ADD COLUMN bot_left INTEGER NOT NULL DEFAULT 0")
 
         # Migrations for existing DB files without grouping_id column
         async with db.execute("PRAGMA table_info(meals)") as cursor:
@@ -192,14 +198,57 @@ async def get_families_with_activity(db_path: str, trip_id: int) -> set[int]:
 
 
 async def end_trip(db_path: str, trip_id: int) -> None:
-    """Mark a trip as inactive."""
+    """Mark a trip as inactive and record ended_at timestamp."""
     async with aiosqlite.connect(db_path) as db:
-        await db.execute("UPDATE trips SET active = 0 WHERE id = ?", (trip_id,))
+        await db.execute(
+            "UPDATE trips SET active = 0, ended_at = datetime('now') WHERE id = ?", (trip_id,)
+        )
         await db.commit()
 
 
-async def resume_last_trip(db_path: str, chat_id: int) -> dict | None:
-    """Reactivate the most recently ended trip for a chat, if any."""
+async def mark_bot_left_chat(db_path: str, chat_id: int) -> None:
+    """Record that the bot has left the chat after the 48h deadline."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET bot_left = 1 WHERE chat_id = ?", (chat_id,))
+        await db.commit()
+
+
+async def get_expired_ended_trips(db_path: str, max_hours: int = 48) -> list[dict]:
+    """Get inactive trips where ended_at was > max_hours ago and bot hasn't left yet, with no newer active trip."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""
+            SELECT t.* FROM trips t
+            WHERE t.active = 0
+              AND t.bot_left = 0
+              AND t.ended_at IS NOT NULL
+              AND datetime(t.ended_at, '+{max_hours} hours') <= datetime('now')
+              AND t.chat_id NOT IN (SELECT chat_id FROM trips WHERE active = 1)
+            """
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_pending_departure_trips(db_path: str, max_hours: int = 48) -> list[dict]:
+    """Get inactive trips ended within max_hours where bot has not left yet and no active trip exists."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"""
+            SELECT t.* FROM trips t
+            WHERE t.active = 0
+              AND t.bot_left = 0
+              AND t.ended_at IS NOT NULL
+              AND datetime(t.ended_at, '+{max_hours} hours') > datetime('now')
+              AND t.chat_id NOT IN (SELECT chat_id FROM trips WHERE active = 1)
+            """
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def resume_last_trip(db_path: str, chat_id: int, max_hours: int = 48) -> dict | None:
+    """Reactivate the most recently ended trip for a chat, if within max_hours."""
     async with aiosqlite.connect(db_path) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -210,10 +259,25 @@ async def resume_last_trip(db_path: str, chat_id: int) -> dict | None:
             if not row:
                 return None
             trip = dict(row)
+            if trip["active"] == 1:
+                return trip
+            if trip.get("ended_at"):
+                async with db.execute(
+                    f"SELECT datetime(?, '+{max_hours} hours') <= datetime('now')",
+                    (trip["ended_at"],),
+                ) as exp_cur:
+                    exp_row = await exp_cur.fetchone()
+                    if exp_row and exp_row[0] == 1:
+                        return {"expired": True, "name": trip["name"], "id": trip["id"]}
             await db.execute("UPDATE trips SET active = 0 WHERE chat_id = ?", (chat_id,))
-            await db.execute("UPDATE trips SET active = 1 WHERE id = ?", (trip["id"],))
+            await db.execute(
+                "UPDATE trips SET active = 1, ended_at = NULL, bot_left = 0 WHERE id = ?",
+                (trip["id"],),
+            )
             await db.commit()
             trip["active"] = 1
+            trip["ended_at"] = None
+            trip["bot_left"] = 0
             return trip
 
 

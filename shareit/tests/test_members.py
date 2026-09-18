@@ -1225,6 +1225,191 @@ async def test_admin_family_management_flow(db_path):
     assert charlie_fam_after is None
 
 
+@pytest.mark.asyncio
+async def test_endtrip_stops_daily_reminder(db_path):
+    from bot.db import create_trip, add_family, get_active_trip, get_past_trips
+    from bot.handlers.trip import endtrip_handler
+    from bot.reminder import send_daily_reminder
+
+    chat_id = 7777
+    trip_id = await create_trip(db_path, "Banff Trip", chat_id, expected_families=3)
+    await add_family(db_path, trip_id, "Fam1", 2.0, 101)
+
+    mock_bot = MagicMock()
+    mock_bot.send_message = AsyncMock()
+    mock_bot.send_document = AsyncMock()
+    mock_job_queue = MagicMock()
+    mock_job_queue.jobs.return_value = []
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.job_queue = mock_job_queue
+
+    up = MagicMock()
+    up.effective_chat.id = chat_id
+    up.effective_chat.type = "group"
+    up.effective_chat.title = "Banff Chat"
+    up.effective_user = create_mock_user(101, "Alice", "alice")
+    up.message = MagicMock()
+    up.callback_query = None
+
+    # Run endtrip_handler
+    await endtrip_handler(up, mock_ctx)
+
+    # 1. Active trip is now None
+    active = await get_active_trip(db_path, chat_id)
+    assert active is None
+
+    # 2. Past trips records ended_at
+    past = await get_past_trips(db_path, chat_id)
+    assert len(past) == 1
+    assert past[0]["id"] == trip_id
+    assert past[0]["ended_at"] is not None
+
+    # 3. 48h departure job was scheduled
+    mock_job_queue.run_once.assert_called()
+    call_kwargs = [c[1] for c in mock_job_queue.run_once.call_args_list]
+    assert any("leave_chat" in kw.get("name", "") for kw in call_kwargs)
+
+    # 4. send_daily_reminder skips this trip and sends 0 messages
+    mock_bot.send_message.reset_mock()
+    await send_daily_reminder(mock_ctx)
+    mock_bot.send_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_resumetrip_expired_window(db_path):
+    import aiosqlite
+    from bot.db import create_trip, end_trip, get_active_trip
+    from bot.handlers.trip import resumetrip_handler
+
+    chat_id = 8888
+    trip_id = await create_trip(db_path, "Expired Trip", chat_id)
+    await end_trip(db_path, trip_id)
+
+    # Fast forward ended_at to 49 hours ago
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET ended_at = datetime('now', '-49 hours') WHERE id = ?", (trip_id,))
+        await db.commit()
+
+    mock_bot = MagicMock()
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.job_queue = MagicMock()
+
+    up = MagicMock()
+    up.effective_chat.id = chat_id
+    up.effective_chat.type = "group"
+    up.effective_user = create_mock_user(101, "Alice", "alice")
+    up.message = MagicMock()
+    up.callback_query = None
+    up.effective_message.reply_text = AsyncMock()
+
+    # Attempt to resume trip
+    await resumetrip_handler(up, mock_ctx)
+
+    # Trip remains None (not reactivated)
+    assert await get_active_trip(db_path, chat_id) is None
+    # User was notified that the 48-hour window expired
+    reply_args = up.effective_message.reply_text.call_args[0]
+    assert "48" in reply_args[0]
+
+
+@pytest.mark.asyncio
+async def test_check_48h_departures_leaves_chat(db_path):
+    import aiosqlite
+    from bot.db import create_trip, end_trip, get_expired_ended_trips
+    from bot.reminder import check_48h_departures
+
+    chat_id = 9999
+    trip_id = await create_trip(db_path, "Depart Chat Trip", chat_id)
+    await end_trip(db_path, trip_id)
+
+    # Fast-forward ended_at to 50 hours ago
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET ended_at = datetime('now', '-50 hours') WHERE id = ?", (trip_id,))
+        await db.commit()
+
+    mock_bot = MagicMock()
+    mock_bot.leave_chat = AsyncMock()
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.job_queue = MagicMock()
+
+    # Run check_48h_departures
+    await check_48h_departures(mock_ctx)
+
+    # Bot left the chat
+    mock_bot.leave_chat.assert_called_once_with(chat_id=chat_id)
+    # Trip is marked bot_left = 1
+    expired_after = await get_expired_ended_trips(db_path, max_hours=48)
+    assert not any(t["id"] == trip_id for t in expired_after)
+
+
+@pytest.mark.asyncio
+async def test_resumetrip_cancels_departure(db_path):
+    from bot.db import create_trip, end_trip, get_active_trip
+    from bot.handlers.trip import resumetrip_handler, _leave_chat_job
+
+    chat_id = 6666
+    trip_id = await create_trip(db_path, "Cancelling Departure Trip", chat_id)
+    await end_trip(db_path, trip_id)
+
+    # Set up mock job queue with a pending departure job
+    mock_leave_job = MagicMock()
+    mock_leave_job.name = f"leave_chat_{chat_id}"
+    mock_leave_job.data = {"chat_id": chat_id, "trip_id": trip_id}
+
+    mock_bot = MagicMock()
+    mock_bot.leave_chat = AsyncMock()
+    mock_job_queue = MagicMock()
+    mock_job_queue.get_jobs_by_name.return_value = [mock_leave_job]
+    mock_job_queue.jobs.return_value = [mock_leave_job]
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.job_queue = mock_job_queue
+
+    up = MagicMock()
+    up.effective_chat.id = chat_id
+    up.effective_chat.type = "group"
+    up.effective_user = create_mock_user(101, "Alice", "alice")
+    up.message = None
+    up.callback_query = MagicMock()
+    up.callback_query.answer = AsyncMock()
+    up.callback_query.edit_message_text = AsyncMock()
+
+    # Resume the trip via button tap
+    await resumetrip_handler(up, mock_ctx)
+
+    # 1. Verify departure job removal was requested
+    mock_leave_job.schedule_removal.assert_called()
+
+    # 2. Verify trip is now active in database
+    active = await get_active_trip(db_path, chat_id)
+    assert active is not None
+    assert active["id"] == trip_id
+    assert active["active"] == 1
+    assert active.get("ended_at") is None
+
+    # 3. Verify user was notified that departure is cancelled
+    up.callback_query.edit_message_text.assert_called_once()
+    msg_sent = up.callback_query.edit_message_text.call_args[0][0]
+    assert "resumed" in msg_sent.lower() or "فعال" in msg_sent
+
+    # 4. Verify that _leave_chat_job will not leave chat if invoked while trip is active
+    fake_job_context = MagicMock()
+    fake_job_context.job.data = {"chat_id": chat_id}
+    fake_job_context.bot_data = {"db_path": db_path}
+    fake_job_context.bot.leave_chat = AsyncMock()
+    await _leave_chat_job(fake_job_context)
+    fake_job_context.bot.leave_chat.assert_not_called()
+
+
 
 
 

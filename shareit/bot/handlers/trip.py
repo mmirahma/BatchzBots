@@ -15,24 +15,44 @@ logger = logging.getLogger(__name__)
 
 
 def cancel_pending_leave_job(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Cancel any scheduled 48h group departure job when a new trip is instantiated."""
+    """Cancel any scheduled 48h group departure job when a trip is resumed or created."""
     if chat_id and context and context.job_queue:
         job_name = f"leave_chat_{chat_id}"
         existing = context.job_queue.get_jobs_by_name(job_name)
         for j in existing:
             j.schedule_removal()
+        try:
+            for j in context.job_queue.jobs():
+                if j.name and j.name.startswith(f"leave_chat_{chat_id}"):
+                    j.schedule_removal()
+                elif j.data and isinstance(j.data, dict) and j.data.get("chat_id") == chat_id and "leave" in (j.name or ""):
+                    j.schedule_removal()
+        except Exception as e:
+            logger.debug(f"Error checking all jobs for departure cancellation: {e}")
 
 
 async def _leave_chat_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Leave group chat after 48 hours if no new trip was created."""
-    data = context.job.data
+    data = context.job.data if context.job else {}
     chat_id = data.get("chat_id")
-    if chat_id:
-        try:
-            await context.bot.leave_chat(chat_id=chat_id)
-            logger.info(f"Bot automatically left chat {chat_id} after 48h deadline.")
-        except Exception as e:
-            logger.warning(f"Could not leave chat {chat_id} after 48h deadline: {e}")
+    db_path = context.bot_data.get("db_path") if context.bot_data else None
+    if not chat_id:
+        return
+
+    if db_path:
+        from bot.db import get_active_trip, mark_bot_left_chat
+        active = await get_active_trip(db_path, chat_id)
+        if active:
+            logger.info(f"Skipping leave_chat for {chat_id}: trip '{active['name']}' is currently active.")
+            return
+
+    try:
+        await context.bot.leave_chat(chat_id=chat_id)
+        logger.info(f"Bot automatically left chat {chat_id} after 48h deadline.")
+        if db_path:
+            await mark_bot_left_chat(db_path, chat_id)
+    except Exception as e:
+        logger.warning(f"Could not leave chat {chat_id} after 48h deadline: {e}")
 
 
 async def newtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,9 +144,19 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     from bot.settlement import calculate_trip_settlement_from_db
     from bot.export import create_excel_report
 
+    # 1. Immediately deactivate trip in database so reminders stop immediately and permanently
+    await end_trip(db_path, trip["id"])
+
+    # 2. Cancel any pending reminder jobs in job_queue for this trip or chat
+    if context and context.job_queue:
+        for job in context.job_queue.jobs():
+            if job.name and (f"reminder_{trip['id']}" in job.name or f"reminder_{chat_id}" in job.name or f"meals_{trip['id']}" in job.name):
+                job.schedule_removal()
+
+    # 3. Calculate final settlement
     families, meals, expenses, res = await calculate_trip_settlement_from_db(db_path, trip["id"])
 
-    # 2. Format & send permanent settlement message (No deletion timer per settlement records policy)
+    # 4. Format & send permanent settlement message (No deletion timer per settlement records policy)
     family_names = {f["id"]: f["name"] for f in families}
     text = t("settle_header", lang,
              trip_name=trip["name"],
@@ -146,18 +176,15 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
 
-    # 3. Generate & send permanent Excel document attachment (No deletion timer per settlement records policy)
+    # 5. Generate & send permanent Excel document attachment (No deletion timer per settlement records policy)
     group_title = update.effective_chat.title if update.effective_chat and update.effective_chat.title else trip["name"]
     excel_file = create_excel_report(
         trip_name=trip["name"],
         families=families,
         meals=meals,
         expenses=expenses,
-        meal_contributions=meal_conts,
-        meal_absences=meal_abs,
-        meal_groupings=meal_groups,
-        expense_groupings=expense_groups,
         group_title=group_title,
+        settlement_result=res,
     )
 
     raw_channel = update.effective_chat.title if update.effective_chat and update.effective_chat.title else "Group"
@@ -179,10 +206,7 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parse_mode="Markdown",
     )
 
-    # 4. Deactivate trip in database
-    await end_trip(db_path, trip["id"])
-
-    # 5. Send trip ended farewell message informing users about 48h departure & offering Resume button (60-min deletion)
+    # 6. Send trip ended farewell message informing users about 48h departure & offering Resume button (60-min deletion)
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     resume_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_resume_trip", lang), callback_data="resumetrip_click")]])
     farewell_msg = await context.bot.send_message(
@@ -194,7 +218,7 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if farewell_msg:
         schedule_message_deletion(chat_id, farewell_msg.message_id, context)
 
-    # 6. Schedule 48-hour delayed group departure (cancelled if /newtrip or /resumetrip is created)
+    # 7. Schedule 48-hour delayed group departure (cancelled if /newtrip or /resumetrip is created)
     if context and context.job_queue:
         from datetime import timedelta
         job_name = f"leave_chat_{chat_id}"
@@ -202,7 +226,7 @@ async def endtrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.job_queue.run_once(
             _leave_chat_job,
             when=timedelta(hours=48),
-            data={"chat_id": chat_id},
+            data={"chat_id": chat_id, "trip_id": trip["id"]},
             name=job_name,
         )
 
@@ -219,9 +243,19 @@ async def resumetrip_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     schedule_user_message_deletion(update, context)
 
     from bot.db import resume_last_trip
-    trip = await resume_last_trip(db_path, chat_id)
+    trip = await resume_last_trip(db_path, chat_id, max_hours=48)
     if not trip:
         await reply_ephemeral(update, context, t("no_trip_to_resume", lang))
+        return
+
+    if trip.get("expired"):
+        msg_expired = t("resume_window_expired", lang, name=trip["name"])
+        if update.callback_query:
+            await update.callback_query.answer(msg_expired, show_alert=True)
+            await update.callback_query.edit_message_text(msg_expired, parse_mode="Markdown")
+            refresh_callback_message_deletion(update, context)
+        else:
+            await reply_ephemeral(update, context, msg_expired, parse_mode="Markdown")
         return
 
     cancel_pending_leave_job(chat_id, context)

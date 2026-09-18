@@ -53,6 +53,8 @@ async def send_daily_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
     trips = await get_all_active_trips(db_path)
 
     for trip in trips:
+        if not trip.get("active") or trip.get("ended_at") or trip.get("is_locked"):
+            continue
         expected = trip.get("expected_families")
         if not expected:
             continue
@@ -114,3 +116,61 @@ async def _delete_reminder_message(context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except Exception as e:
         logger.debug(f"Could not delete reminder message: {e}")
+
+
+async def check_48h_departures(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check for ended trips that exceeded 48h and leave their chat, or schedule departure if within 48h."""
+    db_path = context.bot_data.get("db_path") if context.bot_data else None
+    if not db_path:
+        return
+
+    from bot.db import (
+        get_expired_ended_trips, get_pending_departure_trips,
+        mark_bot_left_chat, get_active_trip,
+    )
+    from bot.handlers.trip import _leave_chat_job
+    import datetime
+
+    # 1. Leave any chat whose trip ended >48 hours ago and bot hasn't left yet
+    expired_trips = await get_expired_ended_trips(db_path, max_hours=48)
+    for trip in expired_trips:
+        chat_id = trip["chat_id"]
+        # Double check if any new trip has become active in this chat
+        active = await get_active_trip(db_path, chat_id)
+        if active:
+            continue
+        try:
+            await context.bot.leave_chat(chat_id=chat_id)
+            logger.info(f"Bot left chat {chat_id} (trip '{trip['name']}' ended at {trip.get('ended_at')})")
+            await mark_bot_left_chat(db_path, chat_id)
+        except Exception as e:
+            logger.warning(f"Failed to leave expired chat {chat_id}: {e}")
+            err_str = str(e).lower()
+            if "not found" in err_str or "forbidden" in err_str or "kicked" in err_str or "chat not found" in err_str:
+                await mark_bot_left_chat(db_path, chat_id)
+
+    # 2. Re-register any pending departure timers that might have been lost due to a bot restart
+    if context.job_queue:
+        pending_trips = await get_pending_departure_trips(db_path, max_hours=48)
+        for trip in pending_trips:
+            chat_id = trip["chat_id"]
+            job_name = f"leave_chat_{chat_id}"
+            if not context.job_queue.get_jobs_by_name(job_name):
+                ended_at_str = trip.get("ended_at")
+                remaining_seconds = 48 * 3600
+                if ended_at_str:
+                    try:
+                        ended_dt = datetime.datetime.fromisoformat(ended_at_str.replace("Z", "+00:00"))
+                        if ended_dt.tzinfo is None:
+                            ended_dt = ended_dt.replace(tzinfo=datetime.timezone.utc)
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        elapsed = (now - ended_dt).total_seconds()
+                        remaining_seconds = max(10, (48 * 3600) - elapsed)
+                    except Exception:
+                        pass
+                context.job_queue.run_once(
+                    _leave_chat_job,
+                    when=timedelta(seconds=remaining_seconds),
+                    data={"chat_id": chat_id, "trip_id": trip["id"]},
+                    name=job_name,
+                )

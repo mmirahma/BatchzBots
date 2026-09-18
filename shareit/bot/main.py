@@ -11,7 +11,7 @@ from config import get_config
 from bot import __version__
 from bot.db import init_db
 from bot.handlers import register_handlers
-from bot.reminder import send_daily_reminder
+from bot.reminder import send_daily_reminder, check_48h_departures
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -71,6 +71,14 @@ def main() -> None:
         send_daily_reminder,
         time=time(hour=18, minute=0, tzinfo=VANCOUVER_TZ),
         name="daily_reminder",
+    )
+
+    # Check 48h trip departure deadlines hourly (and on startup after 10s)
+    app.job_queue.run_repeating(
+        check_48h_departures,
+        interval=timedelta(hours=1),
+        first=10,
+        name="check_48h_departures",
     )
 
     logger.info(f"Starting BachzTab bot v{__version__}...")

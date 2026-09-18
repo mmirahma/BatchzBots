@@ -241,6 +241,42 @@ async def test_resume_last_trip_db(db_path):
 
 
 @pytest.mark.asyncio
+async def test_resume_last_trip_48h_expiration(db_path):
+    import aiosqlite
+    from bot.db import (
+        end_trip, resume_last_trip, get_expired_ended_trips,
+        get_pending_departure_trips, mark_bot_left_chat,
+    )
+
+    trip_id = await create_trip(db_path, "Old Trip", chat_id=350)
+    await end_trip(db_path, trip_id)
+
+    # Immediately after ending, it should be in pending departures and resumable
+    pending = await get_pending_departure_trips(db_path, max_hours=48)
+    assert any(t["id"] == trip_id for t in pending)
+
+    # Fast-forward ended_at to 49 hours ago in SQLite
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE trips SET ended_at = datetime('now', '-49 hours') WHERE id = ?", (trip_id,))
+        await db.commit()
+
+    # Now it should be in expired ended trips
+    expired = await get_expired_ended_trips(db_path, max_hours=48)
+    assert any(t["id"] == trip_id for t in expired)
+
+    # Attempting to resume should fail with expired=True
+    resumed = await resume_last_trip(db_path, 350, max_hours=48)
+    assert resumed is not None
+    assert resumed.get("expired") is True
+    assert await get_active_trip(db_path, 350) is None
+
+    # Marking bot left should remove it from expired list
+    await mark_bot_left_chat(db_path, 350)
+    expired_after = await get_expired_ended_trips(db_path, max_hours=48)
+    assert not any(t["id"] == trip_id for t in expired_after)
+
+
+@pytest.mark.asyncio
 async def test_delete_meal_cascade_contributions(db_path):
     from bot.db import delete_meal, get_meal_contributions, get_meals
     trip_id = await create_trip(db_path, "Delete Meal Test", chat_id=400)

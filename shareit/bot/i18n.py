@@ -282,12 +282,16 @@ STRINGS = {
     },
     "btn_resume_trip": {"en": "▶️ Resume Trip", "fa": "▶️ از سرگیری سفر"},
     "trip_resumed": {
-        "en": "▶️ *Trip '{name}' resumed!*\n\nYou can now log new expenses, edit existing expenses with /editmyexpenses, or make corrections. When finished, use /endtrip.",
-        "fa": "▶️ *سفر '{name}' دوباره فعال شد!*\n\nاکنون می‌توانید هزینه‌های جدید ثبت کنید، هزینه‌ها را با /editmyexpenses ویرایش کنید یا اصلاحات انجام دهید. پس از اتمام /endtrip بزنید.",
+        "en": "▶️ *Trip '{name}' resumed!*\n\nGroup departure has been cancelled. You can now log new expenses, edit existing expenses with /editmyexpenses, or make corrections. When finished, use /endtrip.",
+        "fa": "▶️ *سفر '{name}' دوباره فعال شد!*\n\nترک خودکار گروه لغو شد. اکنون می‌توانید هزینه‌های جدید ثبت کنید، هزینه‌ها را با /editmyexpenses ویرایش کنید یا اصلاحات انجام دهید. پس از اتمام /endtrip بزنید.",
     },
     "no_trip_to_resume": {
         "en": "⚠️ No recently ended trip found to resume.",
         "fa": "⚠️ هیچ سفر پایان‌یافته اخیر برای از سرگیری یافت نشد.",
+    },
+    "resume_window_expired": {
+        "en": "⚠️ The 48-hour window to resume '{name}' has expired. It can no longer be resumed.",
+        "fa": "⚠️ مهلت ۴۸ ساعته برای از سرگیری سفر '{name}' به پایان رسیده است و دیگر امکان فعال‌سازی مجدد آن وجود ندارد.",
     },
     "no_active_trip": {
         "en": "⚠️ No active trip. Create one with /newtrip <name>",
