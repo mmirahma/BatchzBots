@@ -57,20 +57,8 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     reply_kbd = get_reply_keyboard(lang, is_joined=is_joined, is_admin=is_admin)
 
     if not is_joined:
-        from bot.handlers.family import WEIGHT_OPTIONS
-        buttons = []
-        row = []
-        for w in WEIGHT_OPTIONS:
-            label = str(w) if w != int(w) else str(int(w))
-            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
-            if len(row) == 5:
-                buttons.append(row)
-                row = []
-        if row:
-            buttons.append(row)
-        inline_kbd = InlineKeyboardMarkup(buttons)
-        msg_text = f"🏕 *{trip['name']}*\n\n⚠️ {t('join_first', lang)}\n{t('join_select_weight', lang)}"
-        await reply_ephemeral(update, context, msg_text, reply_markup=inline_kbd, parse_mode="Markdown")
+        from bot.handlers.family import prompt_join_family_choice
+        await prompt_join_family_choice(update, context, trip, lang)
         return
 
     from bot.handlers._helpers import schedule_message_deletion, schedule_user_message_deletion

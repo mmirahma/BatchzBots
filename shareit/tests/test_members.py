@@ -1034,6 +1034,198 @@ async def test_locked_trip_prevents_all_modifications(db_path):
     assert "locked" in mock_up.effective_message.reply_text.call_args[0][0].lower()
 
 
+@pytest.mark.asyncio
+async def test_join_family_choice_and_callback(db_path):
+    from bot.handlers.family import join_handler, join_callback_handler
+    from bot.db import create_trip, add_family, get_family
+
+    trip_id = await create_trip(db_path, "Camping Trip", 3333)
+    fam_id = await add_family(db_path, trip_id, "Alice's family", 2.0, 100)
+
+    # 1. Unjoined User B calls /join with no args -> should see Alice's family + Create New Family option
+    mock_up_b = MagicMock()
+    mock_up_b.effective_chat.id = 3333
+    mock_up_b.effective_chat.type = "group"
+    mock_up_b.effective_user = create_mock_user(200, "Bob", "bob")
+    mock_up_b.callback_query = None
+    mock_up_b.effective_message.reply_text = AsyncMock()
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.args = []
+
+    await join_handler(mock_up_b, mock_ctx)
+    mock_up_b.effective_message.reply_text.assert_called_once()
+    reply_call = mock_up_b.effective_message.reply_text.call_args
+    keyboard = reply_call[1]["reply_markup"]
+
+    # Verify existing family button and Create New Family button exist
+    buttons = keyboard.inline_keyboard
+    assert any(b.callback_data == f"join_existing_fam_{fam_id}" for row in buttons for b in row)
+    assert any(b.callback_data == "join_new_family_prompt" for row in buttons for b in row)
+
+    # 2. User B taps to join Alice's family
+    mock_cb_up = MagicMock()
+    mock_cb_up.effective_chat.id = 3333
+    mock_cb_up.effective_chat.type = "group"
+    mock_cb_up.effective_user = create_mock_user(200, "Bob", "bob")
+    mock_cb_up.callback_query = MagicMock()
+    mock_cb_up.callback_query.data = f"join_existing_fam_{fam_id}"
+    mock_cb_up.callback_query.answer = AsyncMock()
+    mock_cb_up.callback_query.edit_message_text = AsyncMock()
+
+    mock_ctx.bot.send_message = AsyncMock(return_value=MagicMock(message_id=99))
+    mock_ctx.bot.get_chat_administrators = AsyncMock(return_value=[])
+    mock_ctx.bot.get_chat_member = AsyncMock(return_value=MagicMock(status="member"))
+
+    await join_callback_handler(mock_cb_up, mock_ctx)
+
+    # Verify User B now belongs to Alice's family
+    fam_b = await get_family(db_path, trip_id, 200)
+    assert fam_b is not None
+    assert fam_b["id"] == fam_id
+    assert fam_b["name"] == "Alice's family"
+
+
+@pytest.mark.asyncio
+async def test_multi_member_shared_family_operations(db_path):
+    from bot.db import create_trip, add_family, assign_member_to_family, add_shared_expense, add_meal, add_meal_contribution
+    from bot.handlers.info import my_share_handler
+    from bot.handlers.edit_expenses import edit_my_expenses_handler
+
+    trip_id = await create_trip(db_path, "Family Lake Trip", 4444)
+    # Alice creates family
+    fam_alice = await add_family(db_path, trip_id, "The Smiths", 2.0, 101)
+    # Bob and Carol join The Smiths
+    await assign_member_to_family(db_path, trip_id, fam_alice, 102)
+
+    # Another family exists for split
+    fam_bob = await add_family(db_path, trip_id, "The Browns", 2.0, 201)
+
+    # 1. Alice logs meal ($100 total, paid $100 by Alice)
+    meal_id = await add_meal(db_path, trip_id, "Lake BBQ", fam_alice, 100.0)
+
+    # 2. Bob (same family) logs shared expense ($50)
+    await add_shared_expense(db_path, trip_id, fam_alice, "Boat Fuel", 50.0)
+
+    # Verify both Alice (101) and Bob (102) get identical /myshare reports
+    mock_ctx = MagicMock()
+    mock_ctx.bot_data = {"db_path": db_path}
+
+    mock_up_alice = MagicMock()
+    mock_up_alice.effective_chat.id = 4444
+    mock_up_alice.effective_chat.type = "group"
+    mock_up_alice.effective_user = create_mock_user(101, "Alice Smith", "alice_smith")
+    mock_up_alice.callback_query = None
+    mock_up_alice.effective_message.reply_text = AsyncMock()
+
+    await my_share_handler(mock_up_alice, mock_ctx)
+    alice_text = mock_up_alice.effective_message.reply_text.call_args[0][0]
+
+    mock_up_bob = MagicMock()
+    mock_up_bob.effective_chat.id = 4444
+    mock_up_bob.effective_chat.type = "group"
+    mock_up_bob.effective_user = create_mock_user(102, "Bob Smith", "bob_smith")
+    mock_up_bob.callback_query = None
+    mock_up_bob.effective_message.reply_text = AsyncMock()
+
+    await my_share_handler(mock_up_bob, mock_ctx)
+    bob_text = mock_up_bob.effective_message.reply_text.call_args[0][0]
+
+    # Total paid by The Smiths is $150. Both reports must be identical
+    assert "TOTAL PAID:                         $150.00" in alice_text
+    assert "TOTAL PAID:                         $150.00" in bob_text
+    assert alice_text == bob_text
+
+    # 3. Bob opens /editmyexpenses -> can see both the meal and the fuel
+    await edit_my_expenses_handler(mock_up_bob, mock_ctx)
+    edit_call = mock_up_bob.effective_message.reply_text.call_args
+    edit_buttons = edit_call[1]["reply_markup"].inline_keyboard
+    button_texts = [b.text for row in edit_buttons for b in row]
+    assert any("Lake BBQ" in t for t in button_texts)
+    assert any("Boat Fuel" in t for t in button_texts)
+
+
+@pytest.mark.asyncio
+async def test_admin_family_management_flow(db_path):
+    from bot.db import (
+        create_trip, add_family, get_family, get_families, get_family_by_id,
+        assign_member_to_family,
+    )
+    from bot.handlers.members import member_action_callback_handler, pending_member_text_handler
+
+    trip_id = await create_trip(db_path, "Road Trip", 5555)
+    f1 = await add_family(db_path, trip_id, "Alpha Family", 1.0, 100)
+    f2 = await add_family(db_path, trip_id, "Beta Family", 2.0, 200)
+
+    mock_bot = MagicMock()
+    mock_bot.get_chat_administrators = AsyncMock(return_value=[create_mock_admin(1, "Maysam Mir", "mmirahma")])
+    mock_bot.get_chat_member = AsyncMock(return_value=MagicMock(status="member"))
+
+    mock_ctx = MagicMock()
+    mock_ctx.bot = mock_bot
+    mock_ctx.bot_data = {"db_path": db_path}
+    mock_ctx.user_data = {}
+
+    # 1. Admin assigns unjoined User Charlie (300) to Alpha Family (f1)
+    mock_cb_up = MagicMock()
+    mock_cb_up.effective_chat.id = 5555
+    mock_cb_up.effective_chat.type = "group"
+    mock_cb_up.effective_user = create_mock_user(1, "Maysam Mir", "mmirahma")
+    mock_cb_up.callback_query = MagicMock()
+    mock_cb_up.callback_query.data = f"mem_setfam_300_{f1}"
+    mock_cb_up.callback_query.answer = AsyncMock()
+    mock_cb_up.callback_query.edit_message_text = AsyncMock()
+    mock_cb_up.effective_message.reply_text = AsyncMock()
+
+    await member_action_callback_handler(mock_cb_up, mock_ctx)
+    charlie_fam = await get_family(db_path, trip_id, 300)
+    assert charlie_fam["id"] == f1
+
+    # 2. Admin moves Charlie from Alpha Family (f1) to Beta Family (f2)
+    mock_cb_up.callback_query.data = f"mem_setfam_300_{f2}"
+    await member_action_callback_handler(mock_cb_up, mock_ctx)
+    charlie_fam = await get_family(db_path, trip_id, 300)
+    assert charlie_fam["id"] == f2
+
+    # 3. Admin creates new family for Charlie with weight 2.5
+    mock_cb_up.callback_query.data = "mem_newsetw_300_2.5"
+    await member_action_callback_handler(mock_cb_up, mock_ctx)
+    charlie_fam = await get_family(db_path, trip_id, 300)
+    assert charlie_fam["id"] != f1
+    assert charlie_fam["id"] != f2
+    assert charlie_fam["weight"] == 2.5
+
+    # 4. Admin renames Charlie's family via pending_member_text_handler
+    mock_text_up = MagicMock()
+    mock_text_up.effective_chat.id = 5555
+    mock_text_up.effective_chat.type = "group"
+    mock_text_up.effective_user = create_mock_user(1, "Maysam Mir", "mmirahma")
+    mock_text_up.message = MagicMock(text="Gamma Squad")
+    mock_text_up.effective_message = mock_text_up.message
+    mock_text_up.callback_query = None
+    mock_text_up.message.reply_text = AsyncMock()
+
+    mock_ctx.user_data["pending_rename_family"] = {
+        "family_id": charlie_fam["id"],
+        "family_name": charlie_fam["name"],
+        "target_uid": 300,
+        "chat_id": 5555,
+    }
+
+    handled = await pending_member_text_handler(mock_text_up, mock_ctx)
+    assert handled is True
+    updated_fam = await get_family_by_id(db_path, charlie_fam["id"])
+    assert updated_fam["name"] == "Gamma Squad"
+
+    # 5. Admin removes Charlie from family
+    mock_cb_up.callback_query.data = "mem_rem_300"
+    await member_action_callback_handler(mock_cb_up, mock_ctx)
+    charlie_fam_after = await get_family(db_path, trip_id, 300)
+    assert charlie_fam_after is None
+
+
+
 
 
 

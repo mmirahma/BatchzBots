@@ -2,7 +2,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot.db import (
-    get_active_trip, get_family, add_family, update_family_weight,
+    get_active_trip, get_family, get_family_by_id, get_families, add_family, update_family_weight,
+    assign_member_to_family,
     get_meals, get_meal_absences, add_meal_absence, remove_meal_absence,
 )
 from bot.i18n import t
@@ -14,8 +15,49 @@ from bot.handlers._helpers import (
 WEIGHT_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]
 
 
+async def prompt_join_family_choice(update: Update, context: ContextTypes.DEFAULT_TYPE, trip: dict, lang: str) -> None:
+    """Prompt user to select an existing family to join or create a new family."""
+    db_path = context.bot_data["db_path"]
+    families = await get_families(db_path, trip["id"])
+
+    if not families:
+        # No families yet: directly show weight selection buttons
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        msg_text = f"🏕 *{trip['name']}*\n\n{t('join_select_weight', lang)}"
+        if update.callback_query:
+            await update.callback_query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+            refresh_callback_message_deletion(update, context)
+        else:
+            await reply_ephemeral(update, context, msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        return
+
+    # Existing families present: list each family, and as the LAST option, 'Create New Family'
+    buttons = []
+    for fam in families:
+        label = f"👨‍👩‍👧 {fam['name']} (w={fam['weight']})"
+        buttons.append([InlineKeyboardButton(label, callback_data=f"join_existing_fam_{fam['id']}")])
+
+    buttons.append([InlineKeyboardButton(t("btn_create_new_family", lang), callback_data="join_new_family_prompt")])
+
+    msg_text = t("join_choose_family_title", lang, trip_name=trip["name"])
+    if update.callback_query:
+        await update.callback_query.edit_message_text(msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+    else:
+        await reply_ephemeral(update, context, msg_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+
+
 async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /join [weight] command. Shows buttons if no weight given."""
+    """Handle /join [weight] command. Shows list of families (and create option) if no weight given."""
     if not await require_group(update, context):
         return
     if not await require_unlocked_trip(update, context):
@@ -30,20 +72,7 @@ async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     if not context.args:
-        # Show weight selection buttons
-        buttons = []
-        row = []
-        for w in WEIGHT_OPTIONS:
-            label = str(w) if w != int(w) else str(int(w))
-            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
-            if len(row) == 5:
-                buttons.append(row)
-                row = []
-        if row:
-            buttons.append(row)
-        await reply_ephemeral(
-            update, context, t("join_select_weight", lang), reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        await prompt_join_family_choice(update, context, trip, lang)
         return
 
     try:
@@ -60,7 +89,7 @@ async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def join_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle inline button press for weight selection."""
+    """Handle inline button press for family selection, create new family prompt, or weight selection."""
     query = update.callback_query
     await query.answer()
 
@@ -70,9 +99,54 @@ async def join_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+    lang = await get_lang(update, context)
 
     trip = await get_active_trip(db_path, chat_id)
     if not trip:
+        return
+
+    data = query.data
+
+    # A. User clicked 'Create New Family' -> show weight buttons
+    if data == "join_new_family_prompt":
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"join_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data="join_menu_prompt")])
+        await query.edit_message_text(t("join_select_weight", lang), reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+        return
+
+    # B. Back to join selection
+    if data == "join_menu_prompt":
+        await prompt_join_family_choice(update, context, trip, lang)
+        return
+
+    # C. User clicked an existing family to join
+    if data.startswith("join_existing_fam_"):
+        family_id = int(data.replace("join_existing_fam_", ""))
+        await assign_member_to_family(db_path, trip["id"], family_id, user_id, chat_id)
+        target_fam = await get_family_by_id(db_path, family_id)
+        fam_name = target_fam["name"] if target_fam else "Family"
+        await query.edit_message_text(
+            t("joined_family_success", lang, family_name=fam_name),
+            parse_mode="Markdown",
+        )
+        refresh_callback_message_deletion(update, context)
+
+        from bot.handlers.menu import get_reply_keyboard
+        from bot.handlers._helpers import is_admin_or_owner, schedule_message_deletion
+        is_admin = await is_admin_or_owner(context.bot, chat_id, update.effective_user)
+        reply_kbd = get_reply_keyboard(lang, is_joined=True, is_admin=is_admin)
+        msg = await context.bot.send_message(chat_id=chat_id, text=t("menu_title", lang), reply_markup=reply_kbd, parse_mode="Markdown")
+        schedule_message_deletion(chat_id, msg.message_id, context)
         return
 
     try:

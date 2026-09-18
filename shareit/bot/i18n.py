@@ -670,6 +670,62 @@ STRINGS = {
         "en": "⛔️ Only group administrators can lock or unlock trip entries.",
         "fa": "⛔️ فقط مدیران گروه می‌توانند ثبت هزینه را قفل یا باز کنند.",
     },
+    "join_choose_family_title": {
+        "en": "🏕 *Welcome to {trip_name}!* Choose your family to join, or create a new one:",
+        "fa": "🏕 *به سفر {trip_name} خوش آمدید!* خانواده خود را برای عضویت انتخاب کنید یا یک خانواده جدید بسازید:",
+    },
+    "btn_create_new_family": {
+        "en": "➕ Create New Family",
+        "fa": "➕ ثبت خانواده جدید",
+    },
+    "joined_family_success": {
+        "en": "🎉 You have joined *{family_name}*! All expenses and calculations will be shared under this family.",
+        "fa": "🎉 شما به *{family_name}* ملحق شدید! تمام هزینه‌ها و سهم‌ها به نام این خانواده ثبت و محاسبه می‌شود.",
+    },
+    "btn_assign_to_family": {
+        "en": "👥 Move / Assign to Family",
+        "fa": "👥 انتقال / انتساب به خانواده",
+    },
+    "btn_create_new_family_for_member": {
+        "en": "➕ Create New Family for Member",
+        "fa": "➕ ساخت خانواده جدید برای کاربر",
+    },
+    "btn_edit_family_weight": {
+        "en": "⚖️ Set Family Weight",
+        "fa": "⚖️ تنظیم ضریب خانواده",
+    },
+    "btn_rename_family": {
+        "en": "✏️ Rename Family",
+        "fa": "✏️ تغییر نام خانواده",
+    },
+    "prompt_rename_family": {
+        "en": "✏️ Enter a new name for *{family_name}*:",
+        "fa": "✏️ نام جدید برای *{family_name}* را ارسال کنید:",
+    },
+    "family_renamed_success": {
+        "en": "✅ Family renamed to *{name}*.",
+        "fa": "✅ نام خانواده به *{name}* تغییر یافت.",
+    },
+    "member_reassigned_success": {
+        "en": "✅ *{member_name}* is now assigned to *{family_name}*.",
+        "fa": "✅ *{member_name}* اکنون به *{family_name}* اختصاص یافت.",
+    },
+    "member_removed_from_family_success": {
+        "en": "✅ *{member_name}* removed from their family.",
+        "fa": "✅ *{member_name}* از خانواده خارج شد.",
+    },
+    "select_family_to_assign": {
+        "en": "👥 *Assign {member_name} to a Family*\n\nSelect a family from the list below:",
+        "fa": "👥 *اختصاص {member_name} به یک خانواده*\n\nیک خانواده را از لیست زیر انتخاب کنید:",
+    },
+    "member_family_status": {
+        "en": "Family: *{family_name}* (Weight: {weight})",
+        "fa": "خانواده: *{family_name}* (ضریب: {weight})",
+    },
+    "member_no_family": {
+        "en": "Status: *Not in any family*",
+        "fa": "وضعیت: *در هیچ خانواده‌ای عضو نیست*",
+    },
 }
 
 

@@ -78,6 +78,14 @@ async def init_db(db_path: str) -> None:
                 last_seen TEXT NOT NULL DEFAULT (datetime('now')),
                 PRIMARY KEY (chat_id, telegram_user_id)
             );
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+                telegram_user_id INTEGER NOT NULL,
+                chat_id INTEGER,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(family_id, telegram_user_id)
+            );
         """)
         # Migrations for existing DB files without is_locked column in trips
         async with db.execute("PRAGMA table_info(trips)") as cursor:
@@ -103,6 +111,13 @@ async def init_db(db_path: str) -> None:
             FROM families f
             JOIN trips t ON f.trip_id = t.id
             WHERE f.telegram_user_id IS NOT NULL AND f.telegram_user_id > 0
+        """)
+
+        # Seed family_members from historical families table
+        await db.execute("""
+            INSERT OR IGNORE INTO family_members (family_id, telegram_user_id)
+            SELECT id, telegram_user_id FROM families
+            WHERE telegram_user_id IS NOT NULL AND telegram_user_id > 0
         """)
 
         await db.commit()
@@ -230,6 +245,16 @@ async def add_family(db_path: str, trip_id: int, name: str, weight: float, teleg
             (trip_id, name, weight, telegram_user_id),
         )
         family_id = cursor.lastrowid
+        # Also register creator in family_members if valid telegram_user_id
+        if telegram_user_id and telegram_user_id > 0:
+            await db.execute(
+                "DELETE FROM family_members WHERE telegram_user_id = ? AND family_id IN (SELECT id FROM families WHERE trip_id = ?)",
+                (telegram_user_id, trip_id),
+            )
+            await db.execute(
+                "INSERT OR REPLACE INTO family_members (family_id, telegram_user_id) VALUES (?, ?)",
+                (family_id, telegram_user_id),
+            )
         # Sync to all existing meal groupings for this trip
         async with db.execute("SELECT grouping_id FROM meals WHERE trip_id = ? AND grouping_id IS NOT NULL", (trip_id,)) as m_cursor:
             meal_rows = await m_cursor.fetchall()
@@ -244,15 +269,124 @@ async def add_family(db_path: str, trip_id: int, name: str, weight: float, teleg
 
 
 async def get_family(db_path: str, trip_id: int, telegram_user_id: int) -> dict | None:
-    """Get a family by trip and telegram user ID."""
+    """Get a family by trip and telegram user ID (checking family_members first, then fallback to families)."""
     async with aiosqlite.connect(db_path) as db:
         db.row_factory = aiosqlite.Row
+        # Priority 1: Check family_members association table
+        async with db.execute(
+            """
+            SELECT f.* FROM families f
+            JOIN family_members fm ON f.id = fm.family_id
+            WHERE f.trip_id = ? AND fm.telegram_user_id = ?
+            LIMIT 1
+            """,
+            (trip_id, telegram_user_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(row)
+
+        # Priority 2: Fallback to families table telegram_user_id
         async with db.execute(
             "SELECT * FROM families WHERE trip_id = ? AND telegram_user_id = ?",
             (trip_id, telegram_user_id),
         ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
+
+
+async def assign_member_to_family(
+    db_path: str, trip_id: int, family_id: int, telegram_user_id: int, chat_id: int | None = None
+) -> None:
+    """Assign/move a telegram user to a family within a trip, removing any prior family assignment in this trip."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            """
+            DELETE FROM family_members
+            WHERE telegram_user_id = ? AND family_id IN (SELECT id FROM families WHERE trip_id = ?)
+            """,
+            (telegram_user_id, trip_id),
+        )
+        await db.execute(
+            "UPDATE families SET telegram_user_id = 0 WHERE telegram_user_id = ? AND trip_id = ? AND id != ?",
+            (telegram_user_id, trip_id, family_id),
+        )
+        await db.execute(
+            "INSERT OR REPLACE INTO family_members (family_id, telegram_user_id, chat_id) VALUES (?, ?, ?)",
+            (family_id, telegram_user_id, chat_id),
+        )
+        await db.commit()
+
+
+async def remove_member_from_family(db_path: str, trip_id: int, telegram_user_id: int) -> None:
+    """Remove a telegram user from their family in a trip."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            """
+            DELETE FROM family_members
+            WHERE telegram_user_id = ? AND family_id IN (SELECT id FROM families WHERE trip_id = ?)
+            """,
+            (telegram_user_id, trip_id),
+        )
+        await db.execute(
+            "UPDATE families SET telegram_user_id = 0 WHERE telegram_user_id = ? AND trip_id = ?",
+            (telegram_user_id, trip_id),
+        )
+        await db.commit()
+
+
+async def get_family_members(db_path: str, family_id: int) -> list[dict]:
+    """Get all members belonging to a family."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT fm.telegram_user_id, cm.name, cm.username
+            FROM family_members fm
+            LEFT JOIN chat_members cm ON fm.telegram_user_id = cm.telegram_user_id
+            WHERE fm.family_id = ?
+            """,
+            (family_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+
+async def update_family_name(db_path: str, family_id: int, name: str) -> None:
+    """Update a family's display name."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE families SET name = ? WHERE id = ?", (name, family_id))
+        await db.commit()
+
+
+async def get_trip_members_with_families(db_path: str, trip_id: int) -> dict[int, dict]:
+    """Return a mapping of telegram_user_id -> family dict for all members assigned to families in a trip."""
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT fm.telegram_user_id, f.*
+            FROM family_members fm
+            JOIN families f ON fm.family_id = f.id
+            WHERE f.trip_id = ?
+            """,
+            (trip_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            mapping = {r["telegram_user_id"]: dict(r) for r in rows}
+
+        # Also merge any families where primary telegram_user_id is set but not yet in family_members
+        async with db.execute(
+            "SELECT * FROM families WHERE trip_id = ? AND telegram_user_id > 0",
+            (trip_id,),
+        ) as cursor:
+            f_rows = await cursor.fetchall()
+            for fr in f_rows:
+                uid = fr["telegram_user_id"]
+                if uid not in mapping:
+                    mapping[uid] = dict(fr)
+
+        return mapping
 
 
 async def get_families(db_path: str, trip_id: int) -> list[dict]:
@@ -710,6 +844,7 @@ async def remove_family_from_trip(db_path: str, trip_id: int, family_id: int, fo
             "DELETE FROM grouping_members WHERE family_id = ? AND grouping_id IN (SELECT id FROM groupings WHERE trip_id = ?)",
             (family_id, trip_id),
         )
+        await db.execute("DELETE FROM family_members WHERE family_id = ?", (family_id,))
         await db.execute("DELETE FROM families WHERE id = ? AND trip_id = ?", (family_id, trip_id))
         await db.commit()
         return True

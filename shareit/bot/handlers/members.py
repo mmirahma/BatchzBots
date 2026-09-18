@@ -7,9 +7,10 @@ from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 
 from bot.db import (
-    get_active_trip, get_families, get_family, add_family,
-    update_family_weight, remove_family_from_trip, get_family_expenses,
-    save_chat_member, get_known_chat_members,
+    get_active_trip, get_families, get_family, get_family_by_id, add_family,
+    update_family_weight, update_family_name, assign_member_to_family, remove_member_from_family,
+    remove_family_from_trip, get_family_expenses,
+    save_chat_member, get_known_chat_members, get_trip_members_with_families,
 )
 from bot.i18n import t
 from bot.handlers._helpers import (
@@ -73,18 +74,21 @@ async def get_all_group_members(bot, db_path: str, chat_id: int) -> list[dict]:
     return list(known_map.values())
 
 
-def build_members_keyboard(trip: dict, members: list[dict], families: list[dict], lang: str) -> InlineKeyboardMarkup:
+def build_members_keyboard(
+    trip: dict, members: list[dict], families: list[dict], member_family_map: dict[int, dict] | None = None, lang: str = "en"
+) -> InlineKeyboardMarkup:
     """Build interactive inline keyboard for member selection and roster status."""
-    families_by_uid = {f["telegram_user_id"]: f for f in families}
+    if member_family_map is None:
+        member_family_map = {f["telegram_user_id"]: f for f in families}
     buttons = []
 
     # 1. Known Telegram Group Members
     for m in members:
         uid = m["telegram_user_id"]
         name = m.get("name", "Member")
-        if uid in families_by_uid:
-            fam = families_by_uid[uid]
-            label = f"✅ {name[:18]} (w={fam['weight']})"
+        if uid in member_family_map:
+            fam = member_family_map[uid]
+            label = f"✅ {name[:14]} ({fam['name'][:10]} - w={fam['weight']})"
         else:
             label = f"➕ {name[:18]} (Not in trip)"
         buttons.append([InlineKeyboardButton(label, callback_data=f"mem_sel_{uid}")])
@@ -132,8 +136,9 @@ async def members_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     members = await get_all_group_members(context.bot, db_path, chat_id)
     families = await get_families(db_path, trip["id"])
+    member_family_map = await get_trip_members_with_families(db_path, trip["id"])
 
-    keyboard = build_members_keyboard(trip, members, families, lang)
+    keyboard = build_members_keyboard(trip, members, families, member_family_map, lang)
     text = t("members_title", lang, trip_name=trip["name"])
 
     if update.callback_query:
@@ -148,7 +153,7 @@ async def members_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def member_select_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle selection of a specific member to configure weight or remove/skip."""
+    """Handle selection of a specific member to configure weight or move/assign/remove."""
     query = update.callback_query
     await query.answer()
 
@@ -177,42 +182,40 @@ async def member_select_callback_handler(update: Update, context: ContextTypes.D
     members = await get_all_group_members(context.bot, db_path, chat_id)
     member_record = next((m for m in members if m["telegram_user_id"] == target_uid), None)
 
-    if family:
-        display_name = family["name"]
-        status_text = t("status_joined", lang, weight=family["weight"])
-    elif member_record:
+    if member_record:
         display_name = member_record["name"]
-        status_text = t("status_not_joined", lang)
+    elif family:
+        display_name = family["name"]
     else:
         display_name = f"Member #{target_uid}"
-        status_text = t("status_not_joined", lang)
 
-    # Save selected target user in context for custom weight flow
+    if family:
+        status_text = t("member_family_status", lang, family_name=family["name"], weight=family["weight"])
+    else:
+        status_text = t("member_no_family", lang)
+
+    # Save selected target user in context
     context.user_data["selected_member_uid"] = target_uid
     context.user_data["selected_member_name"] = display_name
 
     # Build buttons
     buttons = []
 
-    # If member is NOT in the trip: offer a quick "Add to Trip" button
+    # Quick Add to Trip (default w=2.0) if not in trip
     if not family:
         buttons.append([InlineKeyboardButton(t("btn_add_to_trip", lang), callback_data=f"mem_add_{target_uid}")])
 
-    # Weight selection buttons
-    row = []
-    for w in WEIGHT_OPTIONS:
-        label = str(w) if w != int(w) else str(int(w))
-        row.append(InlineKeyboardButton(label, callback_data=f"mem_setw_{target_uid}_{w}"))
-        if len(row) == 5:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
+    # 1. Move / Assign to an existing family
+    buttons.append([InlineKeyboardButton(t("btn_assign_to_family", lang), callback_data=f"mem_pickfam_{target_uid}")])
 
-    buttons.append([InlineKeyboardButton(t("btn_custom_weight", lang), callback_data=f"mem_custw_{target_uid}")])
+    # 2. Create new family for this member
+    buttons.append([InlineKeyboardButton(t("btn_create_new_family_for_member", lang), callback_data=f"mem_newfam_{target_uid}")])
 
+    # If already in a family: offer editing weight, renaming family, and removal
     if family:
-        buttons.append([InlineKeyboardButton(t("btn_remove_member", lang), callback_data=f"mem_del_{target_uid}")])
+        buttons.append([InlineKeyboardButton(t("btn_edit_family_weight", lang), callback_data=f"mem_editw_{target_uid}")])
+        buttons.append([InlineKeyboardButton(t("btn_rename_family", lang), callback_data=f"mem_renfam_{target_uid}")])
+        buttons.append([InlineKeyboardButton(t("btn_remove_member", lang), callback_data=f"mem_rem_{target_uid}")])
 
     buttons.append([InlineKeyboardButton(t("btn_back_members", lang), callback_data="mem_list")])
 
@@ -263,6 +266,151 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
         return
 
     if not await require_unlocked_trip(update, context):
+        return
+
+    if data.startswith("mem_pickfam_"):
+        target_uid = int(data.replace("mem_pickfam_", ""))
+        members = await get_all_group_members(context.bot, db_path, chat_id)
+        rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+        display_name = rec["name"] if rec else f"Member #{target_uid}"
+
+        families = await get_families(db_path, trip["id"])
+        buttons = []
+        for f in families:
+            buttons.append([InlineKeyboardButton(f"👨‍👩‍👧 {f['name']} (w={f['weight']})", callback_data=f"mem_setfam_{target_uid}_{f['id']}")])
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data=f"mem_sel_{target_uid}")])
+
+        prompt_text = t("select_family_to_assign", lang, member_name=display_name)
+        await query.edit_message_text(prompt_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+        return
+
+    if data.startswith("mem_setfam_"):
+        parts = data.split("_")
+        target_uid = int(parts[2])
+        fam_id = int(parts[3])
+        members = await get_all_group_members(context.bot, db_path, chat_id)
+        rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+        display_name = rec["name"] if rec else f"Member #{target_uid}"
+
+        await assign_member_to_family(db_path, trip["id"], fam_id, target_uid, chat_id)
+        target_fam = await get_family_by_id(db_path, fam_id)
+        fam_name = target_fam["name"] if target_fam else "Family"
+
+        await reply_ephemeral(update, context, t("member_reassigned_success", lang, member_name=display_name, family_name=fam_name))
+        await members_handler(update, context)
+        return
+
+    if data.startswith("mem_newfam_"):
+        target_uid = int(data.replace("mem_newfam_", ""))
+        members = await get_all_group_members(context.bot, db_path, chat_id)
+        rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+        display_name = rec["name"] if rec else f"Member #{target_uid}"
+
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"mem_newsetw_{target_uid}_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        buttons.append([InlineKeyboardButton(t("btn_custom_weight", lang), callback_data=f"mem_custw_{target_uid}")])
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data=f"mem_sel_{target_uid}")])
+
+        prompt_text = t("prompt_custom_member_weight", lang, name=display_name)
+        await query.edit_message_text(prompt_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+        return
+
+    if data.startswith("mem_newsetw_"):
+        parts = data.split("_")
+        target_uid = int(parts[2])
+        weight = float(parts[3])
+
+        members = await get_all_group_members(context.bot, db_path, chat_id)
+        rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+        name = rec["name"] if rec else f"Family #{target_uid}"
+        if not name.endswith("'s family") and not name.endswith(" Family"):
+            name = name + "'s family"
+        await add_family(db_path, trip["id"], name, weight, target_uid)
+        await reply_ephemeral(update, context, t("member_added_success", lang, name=name, weight=weight))
+        await members_handler(update, context)
+        return
+
+    if data.startswith("mem_editw_"):
+        target_uid = int(data.replace("mem_editw_", ""))
+        family = await get_family(db_path, trip["id"], target_uid)
+        fam_name = family["name"] if family else "Family"
+
+        buttons = []
+        row = []
+        for w in WEIGHT_OPTIONS:
+            label = str(w) if w != int(w) else str(int(w))
+            row.append(InlineKeyboardButton(label, callback_data=f"mem_setfw_{target_uid}_{w}"))
+            if len(row) == 5:
+                buttons.append(row)
+                row = []
+        if row:
+            buttons.append(row)
+
+        buttons.append([InlineKeyboardButton(t("btn_custom_weight", lang), callback_data=f"mem_custfw_{target_uid}")])
+        buttons.append([InlineKeyboardButton(t("btn_back", lang), callback_data=f"mem_sel_{target_uid}")])
+
+        prompt_text = t("prompt_custom_member_weight", lang, name=fam_name)
+        await query.edit_message_text(prompt_text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+        return
+
+    if data.startswith("mem_setfw_"):
+        parts = data.split("_")
+        target_uid = int(parts[2])
+        weight = float(parts[3])
+        family = await get_family(db_path, trip["id"], target_uid)
+        if family:
+            await update_family_weight(db_path, family["id"], weight)
+            await reply_ephemeral(update, context, t("member_updated_success", lang, name=family["name"], weight=weight))
+        await members_handler(update, context)
+        return
+
+    if data.startswith("mem_custfw_"):
+        target_uid = int(data.replace("mem_custfw_", ""))
+        context.user_data["pending_custom_family_weight"] = target_uid
+        family = await get_family(db_path, trip["id"], target_uid)
+        fam_name = family["name"] if family else "Family"
+        prompt_text = t("prompt_custom_member_weight", lang, name=fam_name)
+        cancel_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back_members", lang), callback_data=f"mem_sel_{target_uid}")]])
+        await query.edit_message_text(prompt_text, reply_markup=cancel_btn, parse_mode="Markdown")
+        refresh_callback_message_deletion(update, context)
+        return
+
+    if data.startswith("mem_renfam_"):
+        target_uid = int(data.replace("mem_renfam_", ""))
+        family = await get_family(db_path, trip["id"], target_uid)
+        if family:
+            context.user_data["pending_rename_family"] = {
+                "family_id": family["id"],
+                "family_name": family["name"],
+                "target_uid": target_uid,
+                "chat_id": chat_id,
+            }
+            back_btn = InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back", lang), callback_data=f"mem_sel_{target_uid}")]])
+            await query.edit_message_text(t("prompt_rename_family", lang, family_name=family["name"]), reply_markup=back_btn, parse_mode="Markdown")
+            refresh_callback_message_deletion(update, context)
+        return
+
+    if data.startswith("mem_rem_"):
+        target_uid = int(data.replace("mem_rem_", ""))
+        members = await get_all_group_members(context.bot, db_path, chat_id)
+        rec = next((m for m in members if m["telegram_user_id"] == target_uid), None)
+        display_name = rec["name"] if rec else f"Member #{target_uid}"
+
+        await remove_member_from_family(db_path, trip["id"], target_uid)
+        await reply_ephemeral(update, context, t("member_removed_from_family_success", lang, member_name=display_name))
+        await members_handler(update, context)
         return
 
     if data == "mem_custom":
@@ -387,30 +535,48 @@ async def member_action_callback_handler(update: Update, context: ContextTypes.D
 
 
 async def pending_member_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Handle text inputs for custom member name or custom weight."""
+    """Handle text inputs for custom member name, custom weight, or family renaming."""
     if not update.message or not update.message.text:
         return False
 
-    if not context.user_data.get("pending_custom_member_name") and "pending_custom_member_weight" not in context.user_data:
+    if (
+        not context.user_data.get("pending_custom_member_name")
+        and "pending_custom_member_weight" not in context.user_data
+        and "pending_custom_family_weight" not in context.user_data
+        and not context.user_data.get("pending_rename_family")
+    ):
         return False
 
     from bot.handlers._helpers import is_admin_or_owner
     if not await is_admin_or_owner(context.bot, update.effective_chat.id, update.effective_user):
         context.user_data.pop("pending_custom_member_name", None)
         context.user_data.pop("pending_custom_member_weight", None)
+        context.user_data.pop("pending_custom_family_weight", None)
         context.user_data.pop("pending_custom_member_name_val", None)
+        context.user_data.pop("pending_rename_family", None)
         return False
 
     if not await require_unlocked_trip(update, context):
         context.user_data.pop("pending_custom_member_name", None)
         context.user_data.pop("pending_custom_member_weight", None)
+        context.user_data.pop("pending_custom_family_weight", None)
         context.user_data.pop("pending_custom_member_name_val", None)
+        context.user_data.pop("pending_rename_family", None)
         return True
 
     text = update.message.text.strip()
     db_path = context.bot_data["db_path"]
     chat_id = update.effective_chat.id
     lang = await get_lang(update, context)
+
+    # 0. Rename family
+    if context.user_data.get("pending_rename_family"):
+        state = context.user_data.pop("pending_rename_family")
+        fid = state["family_id"]
+        await update_family_name(db_path, fid, text)
+        await reply_ephemeral(update, context, t("family_renamed_success", lang, name=text))
+        await members_handler(update, context)
+        return True
 
     # 1. Custom family name entered
     if context.user_data.get("pending_custom_member_name"):
@@ -463,6 +629,29 @@ async def pending_member_text_handler(update: Update, context: ContextTypes.DEFA
             await add_family(db_path, trip["id"], name, weight, target_uid)
 
         await reply_ephemeral(update, context, t("member_added_success", lang, name=name, weight=weight), parse_mode="Markdown")
+        await members_handler(update, context)
+        return True
+
+    # 3. Custom weight number entered for an existing family
+    if "pending_custom_family_weight" in context.user_data:
+        target_uid = context.user_data.pop("pending_custom_family_weight")
+        try:
+            weight = float(text)
+            if weight <= 0:
+                raise ValueError
+        except ValueError:
+            await reply_ephemeral(update, context, t("invalid_weight", lang))
+            return True
+
+        trip = await get_active_trip(db_path, chat_id)
+        if not trip:
+            return True
+
+        family = await get_family(db_path, trip["id"], target_uid)
+        if family:
+            await update_family_weight(db_path, family["id"], weight)
+            await reply_ephemeral(update, context, t("member_updated_success", lang, name=family["name"], weight=weight))
+
         await members_handler(update, context)
         return True
 
